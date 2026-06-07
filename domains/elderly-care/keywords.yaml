@@ -1,0 +1,70 @@
+# 养老/大健康领域关键词
+# 用于从通用热榜中过滤出养老相关条目
+# 匹配规则：标题或内容中包含任一关键词即保留
+
+keywords:
+  # 中文关键词
+  - 养老
+  - 银发经济
+  - 银发
+  - 老年
+  - 退休
+  - 老龄化
+  - 长者
+  - 康养
+  - 适老化
+  - 居家养老
+  - 智慧养老
+  - 养老院
+  - 养老社区
+  - 养老保险
+  - 养老金
+  - 长期护理
+  - 长护险
+  - 护理保险
+  - 老年人口
+  - 人口老龄化
+  - 以房养老
+  - 个人养老金
+  - 养老政策
+  - 退休金
+  - 退休年龄
+  - 互助养老
+  - 社区养老
+  - 机构养老
+  - 养老地产
+  - 康复护理
+  - 失能老人
+  - 空巢老人
+  - 独居老人
+  - 孤寡老人
+  - 敬老院
+  - 日间照料
+  - 临终关怀
+  - 介护
+  - 护工
+  - 老年痴呆
+  - 阿尔茨海默
+  # 英文关键词（用于海外信源过滤）
+  - senior
+  - elderly
+  - aging
+  - ageing
+  - elder care
+  - senior living
+  - senior housing
+  - nursing home
+  - retirement
+  - silver economy
+  - agetech
+  - age tech
+  - dementia
+  - alzheimer
+  - home care
+  - long-term care
+  - assisted living
+  - memory care
+  - caregiver
+  - 韓国
+  - 日本
+  - 介護

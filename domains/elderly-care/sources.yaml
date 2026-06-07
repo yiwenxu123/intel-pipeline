@@ -1,0 +1,362 @@
+# 银发产业情报引擎 — 信源配置
+# tier: T1(必须监控) / T1.5(重要补充) / T2(参考)
+# kind: rss / web / ageclub / searxng
+# keywords_filter: true 时，采集后按领域关键词过滤，只保留匹配条目
+
+sources:
+
+  # ━━━ T1 垂直源（天然养老内容，无需关键词过滤）━━━
+
+  # -- AgeClub（银发经济垂直媒体，自动提取原始来源） --
+  - id: ageclub_web
+    name: AgeClub
+    kind: ageclub
+    url: https://www.ageclub.net/
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 产业, 研究]
+
+  # -- 政策源 --
+  - id: mca_pension
+    name: 民政部养老政策
+    kind: web
+    url: https://www.mca.gov.cn/
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [政策, 官方]
+
+  - id: nhsa_policy
+    name: 国家医保局
+    kind: web
+    url: https://www.nhsa.gov.cn/
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [长护险, 医保, 政策]
+
+  # -- 行业媒体 --
+  - id: yinfajingji
+    name: 银发经济网
+    kind: web
+    url: https://www.yinfajingji.cn/
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [银发经济, 产业]
+
+  - id: yanglaodongtai
+    name: 养老动态网
+    kind: web
+    url: https://www.yanglaodongtai.com/
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 行业]
+
+  - id: crca
+    name: 中国老龄科学研究中心
+    kind: web
+    url: http://www.crca.cn/
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [老龄研究, 学术]
+
+  - id: vbdata
+    name: 动脉网
+    kind: web
+    url: https://www.vbdata.cn/
+    tier: T1
+    lang: zh
+    keywords_filter: true
+    tags: [医疗健康, 养老科技, 投融资]
+
+  - id: chinairn
+    name: 前瞻产业研究院
+    kind: web
+    url: https://www.chinairn.com/
+    tier: T1.5
+    lang: zh
+    keywords_filter: true
+    tags: [产业报告, 数据]
+
+  # -- WeRSS 养老公众号 --
+  - id: wx_guojiaminzheng
+    name: 国家民政养老服务
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3942502210
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 政策, 官方]
+
+  - id: wx_yiou
+    name: 亿欧大健康
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3095250124
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [大健康, 产业]
+
+  - id: wx_agecare
+    name: AgeCare养老服务
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3547311802
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 服务]
+
+  - id: wx_agetravel
+    name: AgeTravel银发文旅
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3559713809
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 文旅]
+
+  - id: wx_yazhouyanglao
+    name: 亚洲养老网
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_2390696089
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 行业]
+
+  - id: wx_aizhaohu
+    name: 爱照护未来养老研究院
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3571366695
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 研究]
+
+  - id: wx_yanglaoyjy
+    name: 养老研究院
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3015041877
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 研究, 数据]
+
+  - id: wx_wencuibao
+    name: 文萃报
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3281269773
+    tier: T2
+    lang: zh
+    keywords_filter: false
+    tags: [老年, 生活]
+
+  # -- 新增公众号 --
+  - id: wx_agetech
+    name: AgeTech银发科技
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3524052466
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老科技, 投融资, AgeTech]
+
+  - id: wx_ageclub
+    name: AgeClub公众号
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3244487543
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 产业, AgeClub]
+
+  - id: wx_yinfajingji_dc
+    name: 银发经济洞察
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3935500183
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [银发经济, 洞察]
+
+  - id: wx_amuyanglao
+    name: 阿沐养老
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3095321375
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 行业, 深度]
+
+  - id: wx_yanglaoxgc
+    name: 养老新观察
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3910644446
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [养老, 观察]
+
+  - id: wx_dongmaiwang
+    name: 动脉网
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_2391320846
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [医疗, 养老科技, 投融资]
+
+  - id: wx_changhuxqgc
+    name: 长护险前哨观察
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3566830678
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [长护险, 政策]
+
+  - id: wx_renminkk
+    name: 人民康养
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3871693692
+    tier: T1
+    lang: zh
+    keywords_filter: false
+    tags: [康养, 官方]
+
+  # -- 海外信源 --
+  - id: joint_kaigo
+    name: 介護ニュースJoint
+    kind: rss
+    url: https://www.joint-kaigo.com/feed/
+    tier: T1
+    lang: ja
+    keywords_filter: false
+    tags: [介护, 日本, 制度]
+
+  - id: seniorhousing
+    name: Senior Housing News
+    kind: rss
+    url: https://seniorhousingnews.com/feed/
+    tier: T1
+    lang: en
+    keywords_filter: false
+    tags: [养老住宅, 美国, 运营]
+
+  - id: venturesquare
+    name: Venture Square
+    kind: rss
+    url: https://www.venturesquare.net/en/feed/
+    tier: T1.5
+    lang: en
+    keywords_filter: true
+    tags: [韩国, 创业, 投融资]
+
+  - id: silvereco
+    name: Silver Economy
+    kind: rss
+    url: https://www.silvereco.org/en/feed/
+    tier: T1.5
+    lang: en
+    keywords_filter: false
+    tags: [银发经济, 欧洲, 市场]
+
+  - id: gcoa
+    name: Global Coalition on Aging
+    kind: rss
+    url: https://globalcoalitiononaging.com/feed/
+    tier: T1.5
+    lang: en
+    keywords_filter: false
+    tags: [老龄化, 政策, 国际]
+
+  - id: seoulz
+    name: Seoulz
+    kind: rss
+    url: https://www.seoulz.com/feed/
+    tier: T1.5
+    lang: en
+    keywords_filter: true
+    tags: [韩国, 科技, 银发经济]
+
+  # ━━━ T1.5 热榜 + 关键词过滤 ━━━
+
+  - id: baidu_hot
+    name: 百度热搜
+    kind: rss
+    url: http://10.207.251.137:1200/baidu/top
+    tier: T1.5
+    lang: zh
+    keywords_filter: true
+    tags: [热点, 综合]
+
+  - id: weibo_hot
+    name: 微博热搜
+    kind: rss
+    url: http://10.207.251.137:1200/weibo/search/hot
+    tier: T1.5
+    lang: zh
+    keywords_filter: true
+    tags: [热点, 社交]
+
+  - id: zhihu_hot
+    name: 知乎热榜
+    kind: rss
+    url: http://10.207.251.137:1200/zhihu/hot
+    tier: T1.5
+    lang: zh
+    keywords_filter: true
+    tags: [热点, 问答]
+
+  - id: kr36_rsshub
+    name: 36氪
+    kind: rss
+    url: http://10.207.251.137:1200/36kr/newsflashes
+    tier: T1.5
+    lang: zh
+    keywords_filter: true
+    tags: [科技, 创业, 投融资]
+
+  # ━━━ T1.5 SearXNG 搜索 ━━━
+
+  - id: searxng_mp_elderly
+    name: SearXNG 养老公众号搜索
+    kind: searxng
+    url: http://10.207.251.137:8080
+    tier: T1.5
+    lang: zh
+    keywords_filter: false
+    selectors:
+      url_filter: mp.weixin.qq.com
+      search_queries:
+        - 养老 最新政策
+        - 银发经济 产业
+        - 智慧养老 适老化
+        - 长护险 最新
+        - 养老科技 融资
+        - AgeTech 银发
+    tags: [养老, 公众号, 搜索]
+
+  # ━━━ T2 参考源 ━━━
+
+  - id: zhihuiyanglao
+    name: 智慧养老网
+    kind: web
+    url: https://www.zhihuiyanglao.com/
+    tier: T2
+    lang: zh
+    keywords_filter: false
+    tags: [智慧养老, 科技]
+
+  - id: elderask
+    name: 养老问问
+    kind: web
+    url: https://elderask.cn/
+    tier: T2
+    lang: zh
+    keywords_filter: false
+    tags: [养老, AI]

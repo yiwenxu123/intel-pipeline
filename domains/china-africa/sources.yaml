@@ -1,0 +1,197 @@
+# 中非经贸情报引擎 — 信源配置
+# tier: T1(必须监控) / T1.5(重要补充) / T2(参考)
+# kind: rss / web / api
+
+sources:
+
+  # ━━━ 官方政策 ━━━
+  - id: focac
+    name: 中非合作论坛官网
+    kind: web
+    url: http://www.focac.org/
+    tier: T1
+    lang: zh
+    selectors:
+      list: "a[href*='t']"  # 待实际调试后调整
+      title: "title"
+    tags: [政策, 官方]
+
+  - id: mofcom
+    name: 商务部
+    kind: web
+    url: https://www.mofcom.gov.cn/
+    tier: T1
+    lang: zh
+    selectors:
+      article: ".list-item"
+      title: "a"
+    tags: [政策, 经贸]
+
+  - id: beltroad
+    name: 中国一带一路网
+    kind: web
+    url: https://www.yidaiyilu.gov.cn/zfjm.htm
+    tier: T1
+    lang: zh
+    selectors:
+      article: ".djj_list_item"
+      title: "a"
+    tags: [政策, 中非专题]
+
+  - id: customs
+    name: 海关总署
+    kind: web
+    url: http://www.customs.gov.cn/customs/302249/zfxxgk/2799825/302274/index.html
+    tier: T1.5
+    lang: zh
+    selectors:
+      article: ".conList li"
+      title: "a"
+    tags: [数据, 贸易统计]
+
+  - id: mfa_africa
+    name: 外交部非洲司
+    kind: web
+    url: https://www.mfa.gov.cn/web/ziliao_674904/tytj_674911/zfgx_674915/
+    tier: T1
+    lang: zh
+    selectors:
+      article: ".rebox_news_list li"
+      title: "a"
+    tags: [政策, 外交]
+
+  # ━━━ 智库与研究 ━━━
+  - id: cabc
+    name: 中非贸易研究中心 (Afrindex)
+    kind: web
+    url: http://news.afrindex.com/
+    tier: T1
+    lang: zh
+    selectors:
+      article: "div.bd li"
+      title: "a[title]"
+      date: "i.img_one"
+    tags: [贸易, 智库]
+
+  - id: chinafrica_bridge
+    name: 中非桥
+    kind: web
+    url: https://www.zhongfeiqiao.com/
+    tier: T1.5
+    lang: zh
+    tags: [贸易服务, 智库]
+
+  - id: pku_africa
+    name: 北京大学非洲研究中心
+    kind: web
+    url: http://africancenter.pku.edu.cn/
+    tier: T1.5
+    lang: zh
+    tags: [学术, 研究]
+
+  - id: cass_africa
+    name: 中国社科院西亚非洲研究所
+    kind: web
+    url: https://cssn.cn/sjs/sjs_sjzx/
+    tier: T1.5
+    lang: zh
+    tags: [学术, 研究]
+
+  # ━━━ 国际组织 ━━━
+  - id: un_africa_rss
+    name: 联合国非洲新闻
+    kind: rss
+    url: https://news.un.org/zh/rss-feeds
+    tier: T1.5
+    lang: zh
+    tags: [国际, 新闻]
+
+  - id: afdb
+    name: 非洲开发银行
+    kind: rss
+    url: https://www.afdb.org/en/news-and-events/rss
+    tier: T2
+    lang: en
+    tags: [金融, 投资]
+
+  - id: worldbank_africa
+    name: 世界银行非洲
+    kind: web
+    url: https://www.worldbank.org/en/region/afr
+    tier: T2
+    lang: en
+    tags: [经济, 研究]
+
+  # ━━━ 非洲本地英文媒体 ━━━
+  - id: allafrica
+    name: AllAfrica
+    kind: rss
+    url: https://allafrica.com/tools/headlines/rdf/latest/headlines.rdf
+    tier: T1.5
+    lang: en
+    tags: [新闻, 泛非洲]
+
+  - id: theafricareport
+    name: The Africa Report
+    kind: rss
+    url: https://www.theafricareport.com/feed/
+    tier: T1.5
+    lang: en
+    tags: [新闻, 分析]
+
+  - id: africanews
+    name: Africanews
+    kind: rss
+    url: https://www.africanews.com/feed/rss
+    tier: T2
+    lang: en
+    tags: [新闻]
+
+  - id: businessdayafrica
+    name: Business Day Africa
+    kind: rss
+    url: https://www.businessday.ng/feed/
+    tier: T2
+    lang: en
+    tags: [商业, 财经]
+
+  # ━━━ 更多 RSS 信源 ━━━
+  - id: bbc_africa
+    name: BBC Africa
+    kind: rss
+    url: https://feeds.bbci.co.uk/news/world/africa/rss.xml
+    tier: T1.5
+    lang: en
+    tags: [新闻, 泛非洲]
+
+  - id: reuters_africa
+    name: Reuters Africa
+    kind: rss
+    url: https://www.reutersagency.com/feed/?best-topics=africa&post_type=best
+    tier: T1.5
+    lang: en
+    tags: [新闻, 财经]
+
+  - id: cgtn_africa
+    name: CGTN Africa
+    kind: rss
+    url: https://www.cgtn.com/subscribe/rss/section/africa.xml
+    tier: T1
+    lang: en
+    tags: [新闻, 中国视角]
+
+  - id: china_daily
+    name: China Daily
+    kind: rss
+    url: https://www.chinadaily.com.cn/rss/world_rss.xml
+    tier: T1.5
+    lang: en
+    tags: [新闻, 中国]
+
+  # ━━━ X/Twitter 信源（关键词监控，需自行接入） ━━━
+  # - id: x_chinafrica
+  #   name: X 中非经贸关键词监控
+  #   kind: api
+  #   url: "x:keyword:中非 OR China-Africa OR China Africa trade"
+  #   tier: T1.5
+  #   tags: [社交, 实时]

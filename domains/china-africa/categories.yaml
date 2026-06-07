@@ -1,0 +1,42 @@
+# 中非经贸情报 — 分类体系
+
+categories:
+  - id: policy
+    name: 政策法规
+    description: 中非双边政策、关税调整、签证变化、贸易协定、投资准入
+    keywords: [关税, 签证, 协定, 备忘录, 准入, 外汇, 政策]
+
+  - id: trade
+    name: 贸易动态
+    description: 进出口数据、贸易额变化、大宗商品、供应链、物流
+    keywords: [进出口, 贸易额, 大宗, 供应链, 物流, 港口, 海关]
+
+  - id: investment
+    name: 投资合作
+    description: 基建项目、产业园区、矿业、农业、能源、投资金额
+    keywords: [投资, 基建, 产业园, 矿业, 能源, 承包, 工程]
+
+  - id: finance
+    name: 金融货币
+    description: 人民币结算、非洲货币、银行合作、开发金融、优惠贷款
+    keywords: [人民币, 汇率, 银行, 贷款, 金融, 结算]
+
+  - id: tech_transfer
+    name: 技术合作
+    description: 技术转让、数字非洲、通信基建、新能源、农业技术
+    keywords: [技术, 数字, 5G, 光伏, 农业技术, 培训]
+
+  - id: diplomacy
+    name: 外交关系
+    description: 高层互访、峰会、外交表态、国际组织涉中非决议
+    keywords: [峰会, 访问, 会见, 外交, FOCAC, 联合国]
+
+  - id: risk
+    name: 风险预警
+    description: 政局动荡、安全形势、自然灾害、债务风险、合规警示
+    keywords: [风险, 安全, 动荡, 制裁, 合规, 预警]
+
+  - id: case_study
+    name: 案例与观点
+    description: 成功案例、企业经验、专家分析、市场洞察
+    keywords: [案例, 经验, 分析, 洞察, 趋势]

@@ -1,0 +1,44 @@
+# 银发产业情报 — 分类体系（含独立时间窗口）
+
+categories:
+  - id: policy
+    name: 政策法规
+    freshness_days: 30
+    description: 养老政策、医保改革、长期护理保险、养老服务标准、人口政策
+    keywords: [政策, 法规, 医保, 长护险, 养老标准, 人口]
+
+  - id: industry
+    name: 行业动态
+    freshness_days: 7
+    description: 养老产业趋势、银发经济市场规模、企业动态、投融资
+    keywords: [养老产业, 银发经济, 市场规模, 融资, 投资, 趋势]
+
+  - id: health_services
+    name: 健康服务
+    freshness_days: 14
+    description: 医疗健康、慢病管理、康复护理、远程医疗、健康管理
+    keywords: [慢病, 康复, 护理, 远程医疗, 健康管理, 体检]
+
+  - id: elderly_tech
+    name: 智慧养老
+    freshness_days: 7
+    description: 适老化科技、可穿戴设备、智能家居、AI养老、养老信息化
+    keywords: [智慧养老, 适老化, 可穿戴, 智能家居, AI养老, 科技]
+
+  - id: finance_security
+    name: 养老金融
+    freshness_days: 14
+    description: 养老保险、个人养老金、养老理财、以房养老、社保
+    keywords: [养老保险, 个人养老金, 养老理财, 社保, 年金]
+
+  - id: lifestyle
+    name: 养老生活
+    freshness_days: 14
+    description: 老年教育、旅居养老、代际关系、退休规划、老年心理
+    keywords: [老年教育, 旅居, 退休, 老年心理, 代际, 品质生活]
+
+  - id: risk
+    name: 风险预警
+    freshness_days: 3
+    description: 养老诈骗、虚假宣传、非法集资、医疗安全、养老机构违规
+    keywords: [诈骗, 非法集积, 虚假宣传, 安全, 违规, 投诉]
