@@ -201,5 +201,70 @@ def pipe():
     console.print("\n🎉 流水线执行完毕！")
 
 
+# ── 自动进化命令组 ──
+
+@cli.group()
+def evolve():
+    """自动进化：信源质量分析、评分校准、关键词扩展。"""
+    pass
+
+
+@evolve.command()
+@click.option("--days", default=7, help="分析天数")
+def sources(days: int):
+    """信源质量分析。"""
+    from engine.config import settings
+    from engine.evolution.source_analyzer import save_source_report
+    domain = settings.domain
+    path = save_source_report(domain, days)
+    console.print(f"✅ 信源质量报告已生成: {path}")
+
+
+@evolve.command(name="scoring")
+@click.option("--days", default=7, help="分析天数")
+def evolve_scoring(days: int):
+    """评分分析。"""
+    from engine.config import settings
+    from engine.evolution.scoring_calibrator import save_scoring_report
+    domain = settings.domain
+    path = save_scoring_report(domain, days)
+    console.print(f"✅ 评分分析报告已生成: {path}")
+
+
+@evolve.command()
+@click.option("--days", default=7, help="分析天数")
+def keywords(days: int):
+    """关键词扩展分析。"""
+    from engine.config import settings
+    from engine.evolution.keyword_expander import save_keyword_report
+    domain = settings.domain
+    path = save_keyword_report(domain, days)
+    console.print(f"✅ 关键词分析报告已生成: {path}")
+
+
+@evolve.command(name="all")
+@click.option("--days", default=7, help="分析天数")
+def evolve_all(days: int):
+    """运行所有进化分析。"""
+    from engine.config import settings
+    from engine.evolution.source_analyzer import save_source_report
+    from engine.evolution.scoring_calibrator import save_scoring_report
+    from engine.evolution.keyword_expander import save_keyword_report
+
+    domain = settings.domain
+    console.print(f"🔄 运行 {domain} 领域的进化分析...")
+
+    path1 = save_source_report(domain, days)
+    console.print(f"  ✅ 信源质量: {path1}")
+
+    path2 = save_scoring_report(domain, days)
+    console.print(f"  ✅ 评分分析: {path2}")
+
+    path3 = save_keyword_report(domain, days)
+    console.print(f"  ✅ 关键词分析: {path3}")
+
+    console.print(f"\n🎉 进化分析完成！")
+
+
 if __name__ == "__main__":
     cli()
