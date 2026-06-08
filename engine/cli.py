@@ -42,10 +42,24 @@ def fetch(max_workers: int):
 
     domain = load_domain()
     store = Store()
-    items = fetch_all(domain, store, max_workers=max_workers)
+    result = fetch_all(domain, store, max_workers=max_workers)
     store.close()
 
-    console.print(f"\n✅ 采集完成：新增 [bold green]{len(items)}[/] 条")
+    items = result.new_items
+    console.print(f"\n✅ 采集完成：新增 [bold green]{len(items)}[/] 条 | "
+                  f"信源 [bold]{result.sources_success}/{result.sources_total}[/] 成功 | "
+                  f"耗时 {result.duration_seconds}s")
+
+    if result.errors:
+        console.print(f"\n⚠️  [bold yellow]{len(result.errors)}[/] 个信源采集失败：")
+        err_table = Table(show_header=True)
+        err_table.add_column("信源", style="red", width=20)
+        err_table.add_column("错误类型", style="dim", width=12)
+        err_table.add_column("错误信息")
+        for err in result.errors:
+            err_table.add_row(err.source_id, err.error_type, err.error[:80])
+        console.print(err_table)
+
     if items:
         table = Table(title="最新采集（前 10 条）")
         table.add_column("来源", style="cyan", width=15)
@@ -60,6 +74,7 @@ def fetch(max_workers: int):
 @cli.command()
 def filter():
     """筛选：对最近 3 天的未评分条目做 LLM 筛选（边评边存）。"""
+    import time
     from datetime import datetime, timedelta, timezone
     from engine.config import settings
     from engine.domain import load_domain
@@ -69,6 +84,10 @@ def filter():
 
     domain = load_domain()
     store = Store()
+    filter_start = time.time()
+
+    from engine.filter.llm_client import reset_usage
+    reset_usage()
 
     # 只处理最近 N 天内未评分的条目
     cutoff = (datetime.now(timezone.utc) - timedelta(days=settings.score_window_days)).isoformat()
@@ -96,11 +115,13 @@ def filter():
         for r in rows
     ]
 
-    console.print(f"最近 {settings.score_window_days} 天待筛选：{len(items)} 条")
+    total_input = len(items)
+    console.print(f"最近 {settings.score_window_days} 天待筛选：{total_input} 条")
 
     # 预筛
     filtered = pre_filter(items, domain)
-    console.print(f"预筛通过 {len(filtered)} 条，开始逐批评分...")
+    pre_passed = len(filtered)
+    console.print(f"预筛通过 {pre_passed}/{total_input} 条（通过率 {pre_passed/max(total_input,1)*100:.0f}%），开始逐批评分...")
 
     # 批量评分，每批立即写入
     total_saved = 0
@@ -117,7 +138,15 @@ def filter():
     selected = store.get_selected(domain.name, take=20, min_score=6.0)
     store.close()
 
+    filter_duration = time.time() - filter_start
+    from engine.filter.llm_client import get_usage
+    usage = get_usage()
+
     console.print(f"\n✅ 筛选完成：{total_saved} 条评分并入库，精选 {len(selected)} 条")
+    console.print(f"   📊 统计：耗时 {filter_duration:.1f}s | LLM 调用 {usage['calls']} 次 | "
+                  f"输入 {usage['input_tokens']} tokens | 输出 {usage['output_tokens']} tokens | "
+                  f"预筛通过率 {pre_passed/max(total_input,1)*100:.0f}% | "
+                  f"精选率 {len(selected)/max(total_saved,1)*100:.0f}%")
 
     if selected:
         table = Table(title="精选条目（≥6.0 分）")
@@ -214,10 +243,17 @@ def evolve():
 def sources(days: int):
     """信源质量分析。"""
     from engine.config import settings
-    from engine.evolution.source_analyzer import save_source_report
+    from engine.evolution.source_analyzer import save_source_report, analyze_source_quality
     domain = settings.domain
     path = save_source_report(domain, days)
     console.print(f"✅ 信源质量报告已生成: {path}")
+
+    data = analyze_source_quality(domain, days)
+    unhealthy = [s for s in data["sources"] if s["status"] in ("ineffective", "dormant")]
+    if unhealthy:
+        console.print(f"\n⚠️  {len(unhealthy)} 个信源连续 {days} 天无有效产出，建议检查：")
+        for s in unhealthy:
+            console.print(f"  - [bold]{s['source_id']}[/] ({s['status']}): 采集 {s['total']} 条，精选 0 条")
 
 
 @evolve.command(name="scoring")
@@ -225,21 +261,48 @@ def sources(days: int):
 def evolve_scoring(days: int):
     """评分分析。"""
     from engine.config import settings
-    from engine.evolution.scoring_calibrator import save_scoring_report
+    from engine.evolution.scoring_calibrator import save_scoring_report, suggest_adjustments
     domain = settings.domain
     path = save_scoring_report(domain, days)
     console.print(f"✅ 评分分析报告已生成: {path}")
 
+    suggestions = suggest_adjustments(domain, days)
+    if suggestions:
+        console.print(f"\n📋 调整建议：")
+        for s in suggestions:
+            console.print(f"  • {s}")
+
 
 @evolve.command()
 @click.option("--days", default=7, help="分析天数")
-def keywords(days: int):
+@click.option("--apply", "do_apply", is_flag=True, help="将建议关键词追加到 keywords.yaml")
+def keywords(days: int, do_apply: bool):
     """关键词扩展分析。"""
     from engine.config import settings
-    from engine.evolution.keyword_expander import save_keyword_report
+    from engine.evolution.keyword_expander import save_keyword_report, suggest_new_keywords, suggest_keywords_yaml
     domain = settings.domain
     path = save_keyword_report(domain, days)
     console.print(f"✅ 关键词分析报告已生成: {path}")
+
+    suggestions = suggest_new_keywords(domain, days)
+    if suggestions:
+        console.print(f"\n📋 建议新增 {len(suggestions)} 个关键词：")
+        for kw in suggestions:
+            console.print(f"  - {kw}")
+        if do_apply:
+            yaml_text = suggest_keywords_yaml(domain, days)
+            if yaml_text:
+                kw_path = settings.project_root / "domains" / domain / "keywords.yaml"
+                console.print(f"\n将追加到 {kw_path}：")
+                console.print(yaml_text)
+                if click.confirm("确认追加？"):
+                    with open(kw_path, "a", encoding="utf-8") as f:
+                        f.write("\n" + yaml_text + "\n")
+                    console.print(f"✅ 已追加到 {kw_path}")
+                else:
+                    console.print("已取消")
+    else:
+        console.print("✅ 未发现新的关键词建议")
 
 
 @evolve.command(name="all")

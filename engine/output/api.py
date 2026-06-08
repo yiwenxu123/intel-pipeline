@@ -17,7 +17,7 @@ from engine.store import Store
 
 app = FastAPI(
     title="Intel Pipeline API",
-    description="中非经贸情报引擎",
+    description="可配置的行业情报引擎",
     version="0.1.0",
 )
 
@@ -29,6 +29,7 @@ app.add_middleware(
 )
 
 store: Store | None = None
+_domain_source_map: dict[str, dict[str, str]] = {}
 
 
 def get_store() -> Store:
@@ -38,11 +39,23 @@ def get_store() -> Store:
     return store
 
 
+def _get_source_map(domain: str) -> dict[str, str]:
+    """获取信源 ID → 名称映射（带缓存）。"""
+    if domain not in _domain_source_map:
+        try:
+            from engine.domain import load_domain
+            dc = load_domain(domain)
+            _domain_source_map[domain] = {s.id: s.name for s in dc.sources}
+        except Exception:
+            _domain_source_map[domain] = {}
+    return _domain_source_map[domain]
+
+
 # ── API 路由 ──
 
 @app.get("/api/items")
 def get_items(
-    domain: str = Query(default="china-africa"),
+    domain: str = Query(default="elderly-care"),
     mode: str = Query(default="selected", description="selected / all"),
     category: Optional[str] = None,
     source_id: Optional[str] = None,
@@ -125,18 +138,23 @@ def get_items(
     if source_id:
         items = [i for i in items if i.get("source_id") == source_id]
 
+    # 注入 source_name
+    src_map = _get_source_map(domain)
+    for item in items:
+        item["source_name"] = src_map.get(item.get("source_id", ""), "")
+
     return {"domain": domain, "mode": mode, "count": len(items), "items": items, "category_freshness": cat_freshness}
 
 
 @app.get("/api/stats")
-def get_stats(domain: str = Query(default="china-africa")):
+def get_stats(domain: str = Query(default="elderly-care")):
     """获取统计概览。"""
     s = get_store()
     return s.get_stats(domain)
 
 
 @app.get("/api/categories")
-def get_categories(domain: str = Query(default="china-africa")):
+def get_categories(domain: str = Query(default="elderly-care")):
     """获取分类列表及各分类条目数（含时间窗口配置）。"""
     from engine.domain import load_domain
     s = get_store()
@@ -176,18 +194,36 @@ def get_categories(domain: str = Query(default="china-africa")):
 
 
 @app.get("/api/sources")
-def get_sources(domain: str = Query(default="china-africa")):
-    """获取信源列表及各信源条目数。"""
+def get_sources(domain: str = Query(default="elderly-care")):
+    """获取信源列表及各信源条目数（含名称和健康状态）。"""
+    from engine.evolution.source_analyzer import analyze_source_quality
     s = get_store()
+    src_map = _get_source_map(domain)
+
     rows = s.conn.execute(
         """SELECT source_id, COUNT(*) as cnt
            FROM raw_items GROUP BY source_id ORDER BY cnt DESC""",
     ).fetchall()
-    return {"sources": [dict(r) for r in rows]}
+
+    # 信源健康状态
+    try:
+        health_data = analyze_source_quality(domain, days=7)
+        health_map = {h["source_id"]: h["status"] for h in health_data.get("sources", [])}
+    except Exception:
+        health_map = {}
+
+    sources = []
+    for r in rows:
+        d = dict(r)
+        d["name"] = src_map.get(d["source_id"], d["source_id"])
+        d["health"] = health_map.get(d["source_id"], "unknown")
+        sources.append(d)
+
+    return {"sources": sources}
 
 
 @app.get("/api/report/{date}")
-def get_report(date: str, domain: str = Query(default="china-africa")):
+def get_report(date: str, domain: str = Query(default="elderly-care")):
     """获取指定日期的日报 JSON。"""
     json_path = settings.project_root / settings.report_dir / f"{date}-{domain}.json"
     if not json_path.exists():
@@ -195,8 +231,42 @@ def get_report(date: str, domain: str = Query(default="china-africa")):
     return json.loads(json_path.read_text(encoding="utf-8"))
 
 
+@app.get("/api/evolution")
+def get_evolution(domain: str = Query(default="elderly-care"), days: int = Query(default=7)):
+    """获取进化分析数据（信源健康 + 评分分布 + 关键词建议）。"""
+    from engine.evolution.source_analyzer import analyze_source_quality
+    from engine.evolution.scoring_calibrator import analyze_scoring_distribution, suggest_adjustments
+    from engine.evolution.keyword_expander import suggest_new_keywords
+
+    try:
+        source_health = analyze_source_quality(domain, days)
+    except Exception:
+        source_health = {"sources": []}
+
+    try:
+        scoring = analyze_scoring_distribution(domain, days)
+        adjustments = suggest_adjustments(domain, days)
+    except Exception:
+        scoring = {"overall": {}}
+        adjustments = []
+
+    try:
+        kw_suggestions = suggest_new_keywords(domain, days)
+    except Exception:
+        kw_suggestions = []
+
+    return {
+        "domain": domain,
+        "days": days,
+        "source_health": source_health,
+        "scoring": scoring,
+        "scoring_adjustments": adjustments,
+        "keyword_suggestions": kw_suggestions,
+    }
+
+
 @app.get("/api/trending")
-def get_trending(domain: str = Query(default="china-africa"), take: int = Query(default=10, le=50)):
+def get_trending(domain: str = Query(default="elderly-care"), take: int = Query(default=10, le=50)):
     """获取热门条目（高分 + 高引用实体）。"""
     s = get_store()
     rows = s.conn.execute(
@@ -207,7 +277,11 @@ def get_trending(domain: str = Query(default="china-africa"), take: int = Query(
            ORDER BY s.score DESC LIMIT ?""",
         (domain, take),
     ).fetchall()
-    return {"items": [dict(r) for r in rows]}
+    items = [dict(r) for r in rows]
+    src_map = _get_source_map(domain)
+    for item in items:
+        item["source_name"] = src_map.get(item.get("source_id", ""), "")
+    return {"items": items}
 
 
 # ── SKILL 接入 ──
@@ -242,11 +316,11 @@ echo "在 Agent 中使用即可"
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    """主页：情报面板。"""
-    html_path = settings.project_root / "domains" / settings.domain / "web" / "index.html"
-    if html_path.exists():
-        return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>Intel Pipeline</h1><p>前端页面未找到，请检查 domains/{domain}/web/index.html</p>")
+    """主页：统一情报面板。"""
+    template_path = settings.project_root / "engine" / "output" / "templates" / "dashboard.html"
+    if template_path.exists():
+        return HTMLResponse(template_path.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>Intel Pipeline</h1><p>Dashboard template not found.</p>")
 
 
 @app.get("/health")
@@ -257,23 +331,23 @@ def health():
 # ── RSS Feeds ──
 
 @app.get("/rss/curated", response_class=Response)
-def rss_curated(domain: str = Query(default="china-africa")):
+def rss_curated(domain: str = Query(default="elderly-care")):
     """RSS Feed：精选情报。"""
     s = get_store()
     items = s.get_selected(domain, take=50, min_score=6.0)
-    return _build_rss("中非经贸情报 - 精选", f"{settings.domain} 精选情报 Feed", items, domain)
+    return _build_rss(f"{domain} 情报 - 精选", f"{domain} 精选情报 Feed", items, domain)
 
 
 @app.get("/rss/all", response_class=Response)
-def rss_all(domain: str = Query(default="china-africa")):
+def rss_all(domain: str = Query(default="elderly-care")):
     """RSS Feed：全部情报。"""
     s = get_store()
     items = s.get_all(domain, take=100)
-    return _build_rss("中非经贸情报 - 全部", f"{settings.domain} 全部情报 Feed", items, domain)
+    return _build_rss(f"{domain} 情报 - 全部", f"{domain} 全部情报 Feed", items, domain)
 
 
 @app.get("/rss/daily", response_class=Response)
-def rss_daily(domain: str = Query(default="china-africa")):
+def rss_daily(domain: str = Query(default="elderly-care")):
     """RSS Feed：今日日报。"""
     date = datetime.now().strftime("%Y-%m-%d")
     json_path = settings.project_root / settings.report_dir / f"{date}-{domain}.json"
@@ -281,8 +355,8 @@ def rss_daily(domain: str = Query(default="china-africa")):
         items = get_store().get_selected(domain, take=50, min_score=6.0)
     else:
         data = json.loads(json_path.read_text(encoding="utf-8"))
-        return _build_rss(f"中非经贸日报 - {date}", f"{domain} {date} 情报日报", data.get("items", []), domain)
-    return _build_rss(f"中非经贸日报 - {date}", f"{domain} {date} 情报日报", items, domain)
+        return _build_rss(f"{domain} 日报 - {date}", f"{domain} {date} 情报日报", data.get("items", []), domain)
+    return _build_rss(f"{domain} 日报 - {date}", f"{domain} {date} 情报日报", items, domain)
 
 
 def _build_rss(title: str, description: str, items: list[dict], domain: str) -> Response:

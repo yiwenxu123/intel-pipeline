@@ -161,3 +161,47 @@ def save_scoring_report(domain: str, days: int = 7) -> Path:
     path.write_text(report, encoding="utf-8")
     logger.info(f"评分分析报告已保存: {path}")
     return path
+
+
+def suggest_adjustments(domain: str, days: int = 7) -> list[str]:
+    """基于评分分布生成具体的 scoring.md prompt 调整建议。"""
+    data = analyze_scoring_distribution(domain, days)
+    suggestions = []
+
+    # 整体精选率异常
+    rate = data["overall"]["select_rate"]
+    if rate > 80:
+        suggestions.append(
+            "整体精选率过高（{:.0f}%），建议在 scoring.md 中增加：\n"
+            "  '评分要严格区分：7分以上必须包含具体数据（金额/用户数/增长率），泛泛而谈不超过5分'".format(rate)
+        )
+    elif rate < 10 and data["overall"]["total"] > 10:
+        suggestions.append(
+            "整体精选率过低（{:.0f}%），可能预筛过严或评分偏严，建议检查 pre_filter.md 的保留标准".format(rate)
+        )
+
+    # 分类维度异常
+    for cat in data.get("by_category", []):
+        if cat["avg_score"] > 9.0 and cat["total"] > 3:
+            suggestions.append(
+                "分类 '{}' 平均分异常高（{}），建议在 scoring.md 中强调该分类的评分标准".format(
+                    cat["category"], cat["avg_score"])
+            )
+        if cat["avg_score"] < 4.0 and cat["total"] > 3:
+            suggestions.append(
+                "分类 '{}' 平均分异常低（{}），可能是该分类内容质量差，建议在 pre_filter.md 中降低该分类的保留门槛".format(
+                    cat["category"], cat["avg_score"])
+            )
+
+    # 信源维度异常
+    for src in data.get("by_source", []):
+        if src["avg_score"] > 9.0 and src["total"] > 5:
+            suggestions.append(
+                "信源 '{}' 平均分异常高（{}），可能存在评分偏向，建议增加评分多样性要求".format(
+                    src["source_id"], src["avg_score"])
+            )
+
+    if not suggestions:
+        suggestions.append("当前评分分布正常，无需调整")
+
+    return suggestions

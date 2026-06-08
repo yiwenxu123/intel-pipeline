@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>情报面板 — Intel Pipeline</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%23ca8a04'/><text x='50' y='68' font-size='52' font-weight='bold' text-anchor='middle' fill='white'>情</text></svg>">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#fefce8', 100:'#fef9c3', 500:'#eab308', 600:'#ca8a04', 700:'#a16207' },
+        surface: { 50:'#fafaf9', 100:'#f5f5f4', 200:'#e7e5e4', 800:'#292524', 900:'#1c1917' }
+      }
+    }
+  }
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+body { font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif; }
+.score-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2.5rem; height: 1.75rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.875rem; }
+.score-hot { background: #dc2626; color: #fff; }
+.score-warm { background: #f59e0b; color: #fff; }
+.score-cool { background: #6b7280; color: #fff; }
+.category-pill { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+.item-card { transition: all 0.15s ease; }
+.item-card:hover { background: #fafaf9; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.sidebar-item { cursor: pointer; transition: all 0.1s ease; }
+.sidebar-item:hover { background: #f5f5f4; }
+.sidebar-item.active { background: #fef9c3; color: #a16207; font-weight: 600; }
+.tab-btn { cursor: pointer; transition: all 0.15s ease; }
+.tab-btn.active { color: #a16207; border-color: #a16207; }
+.tab-btn:not(.active) { color: #78716c; border-color: transparent; }
+.tab-btn:hover:not(.active) { color: #44403c; }
+.fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.skeleton { background: linear-gradient(90deg, #e7e5e4 25%, #f5f5f4 50%, #e7e5e4 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 0.375rem; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body class="bg-surface-50 text-stone-800">
+
+<!-- 顶部导航 -->
+<header class="bg-white border-b border-surface-200 sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div id="domain-icon" class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-sm">情</div>
+      <h1 id="domain-title" class="text-lg font-bold text-stone-900">情报面板</h1>
+    </div>
+    <div id="stats-bar" class="flex items-center gap-4 text-sm text-stone-500"></div>
+  </div>
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex gap-6 border-b border-surface-200">
+      <button class="tab-btn active text-sm font-medium py-2.5 border-b-2" onclick="setView('selected')" id="tab-selected">精选</button>
+      <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('policy')" id="tab-policy">政策追踪</button>
+      <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('deep')" id="tab-deep">深度阅读</button>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-7xl mx-auto px-4 py-4 flex gap-6">
+
+  <!-- 左侧边栏 -->
+  <aside class="w-56 shrink-0">
+    <div id="time-filter" class="mb-4">
+      <h3 class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-2">时间范围</h3>
+      <div class="flex bg-surface-100 rounded-lg p-0.5 gap-0.5">
+        <button onclick="setDays(1)" class="days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500" data-days="1">24h</button>
+        <button onclick="setDays(3)" class="days-btn text-xs px-2 py-1 rounded-md font-medium bg-white shadow-sm text-brand-700" data-days="3">3d</button>
+        <button onclick="setDays(7)" class="days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500" data-days="7">7d</button>
+        <button onclick="setDays(30)" class="days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500" data-days="30">30d</button>
+        <button onclick="setDays(0)" class="days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500" data-days="0">全部</button>
+      </div>
+    </div>
+    <div class="mb-6">
+      <h3 class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-2">分类</h3>
+      <div id="category-list" class="space-y-0.5"></div>
+    </div>
+    <div>
+      <h3 class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-2">信源</h3>
+      <div id="source-list" class="space-y-0.5"></div>
+    </div>
+  </aside>
+
+  <!-- 主内容区 -->
+  <main class="flex-1 min-w-0">
+    <div class="mb-3 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm text-stone-500">
+        <span id="filter-label">精选情报</span>
+        <span id="filter-count" class="text-stone-400"></span>
+        <button id="clear-filter" onclick="clearFilters()" class="hidden text-xs text-brand-600 hover:underline ml-2">清除筛选</button>
+      </div>
+      <div class="relative">
+        <input id="search-input" type="text" placeholder="搜索情报..."
+               class="w-56 h-8 px-3 pr-8 rounded-lg border border-surface-200 bg-surface-50 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <svg class="absolute right-2.5 top-1.5 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+    </div>
+    <div id="items-container" class="space-y-2">
+      <div class="space-y-3">
+        <div class="skeleton h-20 w-full"></div>
+        <div class="skeleton h-20 w-full"></div>
+        <div class="skeleton h-20 w-full"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const DOMAIN = new URLSearchParams(window.location.search).get('domain') || 'elderly-care';
+const DOMAIN_TITLES = { 'elderly-care': '银发产业情报', 'china-africa': '中非经贸情报' };
+const DOMAIN_ICONS = { 'elderly-care': '银', 'china-africa': '非' };
+
+const CATEGORY_COLORS = {
+  policy: 'bg-red-50 text-red-700', industry: 'bg-blue-50 text-blue-700',
+  investment: 'bg-green-50 text-green-700', finance: 'bg-purple-50 text-purple-700',
+  tech_transfer: 'bg-cyan-50 text-cyan-700', diplomacy: 'bg-amber-50 text-amber-700',
+  elderly_tech: 'bg-cyan-50 text-cyan-700', health_services: 'bg-green-50 text-green-700',
+  finance_security: 'bg-purple-50 text-purple-700', lifestyle: 'bg-pink-50 text-pink-700',
+  risk: 'bg-orange-50 text-orange-700', case_study: 'bg-stone-100 text-stone-600',
+  trade: 'bg-blue-50 text-blue-700', uncategorized: 'bg-stone-100 text-stone-500',
+};
+
+let state = { view: 'selected', days: 3, category: null, sourceId: null, query: '' };
+let allItems = [];
+let catLabels = {};
+let sourceNameCache = {};  // source_id → name 缓存
+
+const VIEW_CONFIG = {
+  selected: { label: '精选情报', defaultDays: 3, minScore: 6.0, showTime: true, filterCat: null, filterType: null },
+  policy: { label: '政策追踪', defaultDays: 0, minScore: 6.0, showTime: true, filterCat: 'policy', filterType: null },
+  deep: { label: '深度阅读', defaultDays: 0, minScore: 6.0, showTime: true, filterCat: null, filterType: ['report', 'analysis', 'research'] },
+};
+
+async function init() {
+  const title = DOMAIN_TITLES[DOMAIN] || DOMAIN;
+  const icon = DOMAIN_ICONS[DOMAIN] || '情';
+  document.getElementById('domain-title').textContent = title;
+  document.getElementById('domain-icon').textContent = icon;
+  document.title = title + ' — Intel Pipeline';
+
+  await Promise.all([loadStats(), loadData()]);
+}
+
+async function loadStats() {
+  try {
+    const data = await fetchJSON(`/api/stats?domain=${DOMAIN}`);
+    const bar = document.getElementById('stats-bar');
+    const rate = data.total_fetched > 0 ? ((data.selected / data.total_fetched) * 100).toFixed(1) : '0';
+    bar.innerHTML = `
+      <span>采集 <strong>${(data.total_fetched || 0).toLocaleString()}</strong></span>
+      <span class="text-stone-300">|</span>
+      <span>精选 <strong class="text-brand-700">${(data.selected || 0).toLocaleString()}</strong></span>
+      <span class="text-stone-300">|</span>
+      <span>精选率 <strong>${rate}%</strong></span>
+    `;
+  } catch (e) {
+    document.getElementById('stats-bar').innerHTML = '<span class="text-red-500">统计数据加载失败</span>';
+  }
+}
+
+async function loadData() {
+  sourceNameCache = {};
+  try {
+    const data = await fetchJSON(`/api/items?domain=${DOMAIN}&mode=selected&take=500&min_score=0`);
+    allItems = data.items || [];
+
+    try {
+      const catData = await fetchJSON(`/api/categories?domain=${DOMAIN}`);
+      catLabels = {};
+      (catData.categories || []).forEach(c => { catLabels[c.id] = c.name; });
+    } catch (e) { catLabels = {}; }
+
+    loadView();
+  } catch (e) {
+    document.getElementById('items-container').innerHTML =
+      '<div class="text-center py-20"><p class="text-red-500 font-medium">数据加载失败</p><p class="text-stone-400 text-sm mt-1">请检查 API 服务是否正常运行</p><button onclick="loadData()" class="mt-3 px-4 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700">重试</button></div>';
+  }
+}
+
+function loadView() {
+  const config = VIEW_CONFIG[state.view];
+  let items = [...allItems];
+
+  items = items.filter(i => (i.score || 0) >= config.minScore);
+  if (config.filterCat) items = items.filter(i => (i.category || '') === config.filterCat);
+  if (config.filterType) items = items.filter(i => config.filterType.includes(i.content_type || 'news'));
+  if (state.days > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - state.days);
+    items = items.filter(i => i.published && new Date(i.published) >= cutoff);
+  }
+  if (state.category) items = items.filter(i => (i.category || '') === state.category);
+  if (state.sourceId) items = items.filter(i => (i.source_id || '') === state.sourceId);
+  if (state.query) {
+    const q = state.query.toLowerCase();
+    items = items.filter(i => ((i.title || '') + (i.summary || '')).toLowerCase().includes(q));
+  }
+  items.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+  renderItems(items);
+  updateFilterBar(items.length, config);
+  loadCategories(items);
+  loadSources(items);
+}
+
+function renderItems(items) {
+  const container = document.getElementById('items-container');
+  if (!items.length) {
+    container.innerHTML = '<div class="text-center text-stone-400 py-20">当前视图暂无数据</div>';
+    return;
+  }
+  let html = '';
+  for (let idx = 0; idx < items.length; idx++) {
+    const item = items[idx];
+    const cat = item.category || 'uncategorized';
+    const catLabel = catLabels[cat] || cat;
+    const catColor = CATEGORY_COLORS[cat] || 'bg-stone-100 text-stone-500';
+    const score = typeof item.score === 'number' ? item.score.toFixed(1) : (item.score || '0.0');
+    const tags = parseTags(item.tags);
+    const entities = parseTags(item.entities);
+    const keyPoints = parseTags(item.key_points);
+    const displayName = item.source_name || item.source_display || item.source_id || '';
+
+    html += `<div class="item-card fade-in bg-white rounded-lg border border-surface-200 p-4" id="card-${idx}">
+      <div class="flex gap-3">
+        <div class="shrink-0 pt-0.5"><span class="score-badge ${scoreClass(item.score)}">${score}</span></div>
+        <div class="min-w-0 flex-1">
+          <a href="${item.url}" target="_blank" rel="noopener"
+             class="text-base font-medium text-stone-900 hover:text-brand-700 hover:underline leading-snug line-clamp-2">
+            ${escapeHtml(item.title_display || item.title)}
+          </a>
+          <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span class="category-pill ${catColor}">${escapeHtml(catLabel)}</span>
+            <span class="text-xs text-stone-400">${escapeHtml(displayName)}</span>
+            ${item.published ? `<span class="text-xs text-stone-400">${formatDate(item.published)}</span>` : ''}
+          </div>
+          ${item.summary ? `<p class="text-sm text-stone-600 mt-2 leading-relaxed line-clamp-2">${escapeHtml(item.summary)}</p>` : ''}
+          ${renderKeyPoints(keyPoints)}
+          ${item.reason ? `<p class="text-xs text-stone-500 mt-1.5 leading-relaxed">💡 ${escapeHtml(item.reason)}</p>` : ''}
+          ${entities.length || tags.length ? `<div class="mt-2 flex flex-wrap gap-1">
+            ${entities.map(e => `<span class="inline-flex items-center text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded">📌 ${escapeHtml(e)}</span>`).join('')}
+            ${tags.map(t => `<span class="inline-flex items-center text-xs bg-surface-100 text-stone-500 px-1.5 py-0.5 rounded">#${escapeHtml(t)}</span>`).join('')}
+          </div>` : ''}
+          <div id="detail-${idx}" class="hidden mt-2 pt-2 border-t border-surface-100">
+            ${item.summary ? `<p class="text-sm text-stone-600 leading-relaxed">${escapeHtml(item.summary)}</p>` : ''}
+            ${keyPoints.length ? `<ul class="mt-1.5 ml-3 space-y-0.5 list-disc list-outside">${keyPoints.map(p => `<li class="text-xs text-stone-600 leading-relaxed">${escapeHtml(String(p))}</li>`).join('')}</ul>` : ''}
+            ${item.reason ? `<p class="text-xs text-stone-500 mt-1.5 leading-relaxed">💡 ${escapeHtml(item.reason)}</p>` : ''}
+            <div class="flex items-center gap-2 mt-1.5 text-xs text-stone-400">
+              <span>类型：${escapeHtml(item.content_type || 'news')}</span>
+              <span>来源ID：${escapeHtml(item.source_id || '')}</span>
+            </div>
+          </div>
+          <button onclick="toggleDetail(${idx})" class="mt-1.5 text-xs text-stone-400 hover:text-brand-600 transition-colors" id="btn-${idx}">展开详情 ▾</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderKeyPoints(points) {
+  if (!points) return '';
+  let arr = points;
+  if (typeof points === 'string') { try { arr = JSON.parse(points); } catch { return ''; } }
+  if (!Array.isArray(arr) || !arr.length) return '';
+  const items = arr.map(p => `<li class="text-xs text-stone-600 leading-relaxed">${escapeHtml(String(p))}</li>`).join('');
+  return `<ul class="mt-1.5 ml-3 space-y-0.5 list-disc list-outside">${items}</ul>`;
+}
+
+function scoreClass(score) { if (score >= 8) return 'score-hot'; if (score >= 6.5) return 'score-warm'; return 'score-cool'; }
+
+function updateFilterBar(count, config) {
+  const label = document.getElementById('filter-label');
+  const countEl = document.getElementById('filter-count');
+  const clearBtn = document.getElementById('clear-filter');
+  let text = config.label;
+  if (state.category) text += ` · ${catLabels[state.category] || state.category}`;
+  if (state.sourceId) text += ` · ${state.sourceId}`;
+  if (state.query) text += ` · "${state.query}"`;
+  if (config.showTime && state.days > 0) {
+    const daysMap = {1:' · 24h内', 3:' · 3天内', 7:' · 7天内', 30:' · 30天内'};
+    text += daysMap[state.days] || '';
+  }
+  label.textContent = text;
+  countEl.textContent = `(${count} 条)`;
+  clearBtn.classList.toggle('hidden', !state.category && !state.sourceId && !state.query);
+}
+
+function loadCategories(items) {
+  const counts = {};
+  for (const item of items) { const c = item.category || 'uncategorized'; counts[c] = (counts[c] || 0) + 1; }
+  const allCats = {};
+  for (const item of allItems) { const c = item.category || 'uncategorized'; if (!allCats[c]) allCats[c] = 0; }
+  const sorted = Object.keys(allCats).sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+  const total = items.length;
+  const list = document.getElementById('category-list');
+  let html = `<div class="sidebar-item ${!state.category ? 'active' : ''} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setCategory(null)">
+    <span>全部</span><span class="text-stone-400 text-xs">${total}</span></div>`;
+  for (const cat of sorted) {
+    const label = catLabels[cat] || cat;
+    const active = state.category === cat ? 'active' : '';
+    const dimmed = (counts[cat] || 0) === 0 ? 'opacity-40' : '';
+    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setCategory('${cat}')">
+      <span>${escapeHtml(label)}</span><span class="text-stone-400 text-xs">${counts[cat] || 0}</span></div>`;
+  }
+  list.innerHTML = html;
+}
+
+function loadSources(items) {
+  const counts = {};
+  for (const item of items) { counts[item.source_id] = (counts[item.source_id] || 0) + 1; }
+  const allSrc = {};
+  for (const item of allItems) { if (!allSrc[item.source_id]) allSrc[item.source_id] = 0; }
+  const sorted = Object.keys(allSrc).sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+  const list = document.getElementById('source-list');
+  const total = items.length;
+  let html = `<div class="sidebar-item ${!state.sourceId ? 'active' : ''} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setSource(null)">
+    <span>全部</span><span class="text-stone-400 text-xs">${total}</span></div>`;
+  for (const sid of sorted) {
+    const cnt = counts[sid] || 0;
+    const active = state.sourceId === sid ? 'active' : '';
+    const dimmed = cnt === 0 ? 'opacity-40' : '';
+    const name = getSourceName(sid);
+    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setSource('${sid}')">
+      <span class="truncate" title="${escapeHtml(sid)}">${escapeHtml(name)}</span><span class="text-stone-400 text-xs shrink-0 ml-1">${cnt}</span></div>`;
+  }
+  list.innerHTML = html;
+}
+
+function getSourceName(sourceId) {
+  if (sourceNameCache[sourceId]) return sourceNameCache[sourceId];
+  const item = allItems.find(i => i.source_id === sourceId);
+  const name = (item && (item.source_name || item.source_display)) || sourceId;
+  sourceNameCache[sourceId] = name;
+  return name;
+}
+
+// ── 视图切换 ──
+function setView(view) {
+  state.view = view; state.category = null; state.sourceId = null; state.query = '';
+  document.getElementById('search-input').value = '';
+  const config = VIEW_CONFIG[view];
+  state.days = config.defaultDays;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + view).classList.add('active');
+  document.getElementById('time-filter').style.display = config.showTime ? 'block' : 'none';
+  updateDaysButtons();
+  loadView();
+}
+
+function setDays(days) {
+  state.days = days;
+  updateDaysButtons();
+  loadView();
+}
+
+function toggleDetail(idx) {
+  const detail = document.getElementById('detail-' + idx);
+  const btn = document.getElementById('btn-' + idx);
+  if (!detail || !btn) return;
+  const hidden = detail.classList.contains('hidden');
+  detail.classList.toggle('hidden');
+  btn.textContent = hidden ? '收起 ▴' : '展开详情 ▾';
+}
+
+function updateDaysButtons() {
+  document.querySelectorAll('.days-btn').forEach(btn => {
+    btn.className = parseInt(btn.dataset.days) === state.days
+      ? 'days-btn text-xs px-2 py-1 rounded-md font-medium bg-white shadow-sm text-brand-700'
+      : 'days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500';
+  });
+}
+
+function setCategory(cat) { state.category = cat; loadView(); }
+function setSource(src) { state.sourceId = src; loadView(); }
+function clearFilters() { state.category = null; state.sourceId = null; state.query = ''; document.getElementById('search-input').value = ''; loadView(); }
+
+// ── 工具函数 ──
+function escapeHtml(str) { if (!str) return ''; return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function parseTags(val) { if (!val) return []; if (Array.isArray(val)) return val; try { return JSON.parse(val); } catch { return []; } }
+function formatDate(iso) { if (!iso) return ''; const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`; }
+async function fetchJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
+
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { state.query = e.target.value.trim(); loadView(); }, 300);
+});
+
+init();
+</script>
+</body>
+</html>

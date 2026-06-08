@@ -1,0 +1,56 @@
+"""共用测试 fixtures。"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from engine.store import Store
+
+
+@pytest.fixture
+def store(tmp_path):
+    """创建使用临时数据库的 Store 实例。"""
+    db_path = tmp_path / "test.db"
+    from engine.config import settings
+    original_db_path = settings.db_path
+    settings.db_path = str(db_path)
+    s = Store(db_path)
+    yield s
+    s.close()
+    settings.db_path = original_db_path
+
+
+@pytest.fixture
+def domain_dir(tmp_path):
+    """创建临时领域配置目录。"""
+    d = tmp_path / "test-domain"
+    d.mkdir()
+    (d / "sources.yaml").write_text(
+        "sources:\n"
+        "  - id: test_src\n"
+        "    name: 测试信源\n"
+        "    kind: rss\n"
+        "    url: https://example.com/feed\n"
+        "    tier: T1\n"
+        "    lang: zh\n",
+        encoding="utf-8",
+    )
+    (d / "categories.yaml").write_text(
+        json.dumps({
+            "categories": [
+                {"id": "policy", "name": "政策法规", "freshness_days": 30},
+                {"id": "industry", "name": "行业动态", "freshness_days": 7},
+            ]
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (d / "keywords.yaml").write_text(
+        "keywords:\n  - 测试\n  - 示例\n",
+        encoding="utf-8",
+    )
+    (d / "scoring.md").write_text("评分 prompt", encoding="utf-8")
+    (d / "pre_filter.md").write_text("预筛 prompt", encoding="utf-8")
+    return d

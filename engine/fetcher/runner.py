@@ -11,7 +11,7 @@ from engine.fetcher.rss_fetcher import fetch_rss
 from engine.fetcher.web_fetcher import fetch_web
 from engine.fetcher.ageclub_fetcher import fetch_ageclub
 from engine.fetcher.searxng_fetcher import fetch_searxng
-from engine.models import RawItem, SourceDef, SourceKind
+from engine.models import RawItem, SourceDef, SourceKind, FetchError, FetchResult
 from engine.store import Store
 
 logger = logging.getLogger(__name__)
@@ -23,36 +23,48 @@ def _match_keywords(item: RawItem, keywords: list[str]) -> bool:
     return any(kw.lower() in text for kw in keywords)
 
 
-def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> list[RawItem]:
+def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> FetchResult:
     """完整采集流水线：采集 → 关键词过滤 → 日期验证 → 去重入库。
 
     注意：不做时间过滤，所有条目入库。时间过滤在展示层处理。
     """
+    import time
+    start_time = time.time()
+
     keywords = domain.keywords
     keywords_filter_count = 0
+    fetch_errors: list[FetchError] = []
 
     def _fetch_one(source: SourceDef):
         nonlocal keywords_filter_count
-        if source.kind == SourceKind.RSS:
-            items = fetch_rss(source)
-        elif source.kind == SourceKind.WEB:
-            items = fetch_web(source)
-        elif source.kind == SourceKind.SEARXNG:
-            items = fetch_searxng(source)
-        elif source.kind == SourceKind.AGECLUB:
-            items = fetch_ageclub(source)
-        else:
-            return []
+        try:
+            if source.kind == SourceKind.RSS:
+                items = fetch_rss(source)
+            elif source.kind == SourceKind.WEB:
+                items = fetch_web(source)
+            elif source.kind == SourceKind.SEARXNG:
+                items = fetch_searxng(source)
+            elif source.kind == SourceKind.AGECLUB:
+                items = fetch_ageclub(source)
+            else:
+                return []
 
-        # 关键词过滤
-        if source.keywords_filter and keywords:
-            before = len(items)
-            items = [i for i in items if _match_keywords(i, keywords)]
-            filtered = before - len(items)
-            if filtered > 0:
-                keywords_filter_count += filtered
-                logger.info(f"关键词过滤 [{source.id}]: {before} → {len(items)} 条（过滤 {filtered} 条）")
-        return items
+            # 关键词过滤
+            if source.keywords_filter and keywords:
+                before = len(items)
+                items = [i for i in items if _match_keywords(i, keywords)]
+                filtered = before - len(items)
+                if filtered > 0:
+                    keywords_filter_count += filtered
+                    logger.info(f"关键词过滤 [{source.id}]: {before} → {len(items)} 条（过滤 {filtered} 条）")
+            return items
+        except Exception as e:
+            logger.error(f"信源 [{source.id}] 处理异常: {e}")
+            error_type = "timeout" if "timeout" in str(type(e).__name__).lower() else \
+                         "http_error" if "http" in str(type(e).__name__).lower() else \
+                         "parse_error" if "parse" in str(type(e).__name__).lower() else "unknown"
+            fetch_errors.append(FetchError(source_id=source.id, error=str(e), error_type=error_type))
+            return []
 
     # ── 采集所有信源 ──
     all_raw: list[RawItem] = []
@@ -63,11 +75,8 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> list[
         futures = {pool.submit(_fetch_one, src): src for src in enabled_sources}
         for future in as_completed(futures):
             src = futures[future]
-            try:
-                items = future.result()
-                all_raw.extend(items)
-            except Exception as e:
-                logger.error(f"信源 [{src.id}] 处理异常: {e}")
+            items = future.result()
+            all_raw.extend(items)
 
     if keywords_filter_count > 0:
         logger.info(f"关键词过滤总计丢弃 {keywords_filter_count} 条无关条目")
@@ -89,5 +98,14 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> list[
         store.save_raw(item)
         new_items.append(item)
 
-    logger.info(f"入库完成：新增 {len(new_items)} 条（去重后）")
-    return new_items
+    duration = time.time() - start_time
+    sources_success = len(enabled_sources) - len(fetch_errors)
+    logger.info(f"入库完成：新增 {len(new_items)} 条（去重后），耗时 {duration:.1f}s")
+
+    return FetchResult(
+        new_items=new_items,
+        errors=fetch_errors,
+        duration_seconds=round(duration, 2),
+        sources_total=len(enabled_sources),
+        sources_success=sources_success,
+    )

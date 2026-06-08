@@ -1,108 +1,96 @@
-# Intel Pipeline — 可配置的行业情报引擎
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## 项目概述
 
-这是一个**多领域可插拔的情报采集、筛选、展示系统**。目前支持两个领域：
-- **中非经贸** (`china-africa`) — 中非贸易、投资、政策情报
-- **银发产业** (`elderly-care`) — 养老、大健康、银发经济情报
+**Intel Pipeline** 是一个多领域可插拔情报采集、筛选、展示引擎。支持领域通过 `domains/` 目录配置，引擎代码 (`engine/`) 完全领域无关。
 
-## 架构
+当前支持领域：`elderly-care`（银发产业）、`china-africa`（中非经贸）
+
+## 核心架构
+
+### 流水线
 
 ```
-engine/                 # 通用引擎（领域无关）
-├── config.py           # 全局配置（.env 驱动）
-├── models.py           # 数据模型
-├── domain.py           # 领域加载器
-├── store.py            # SQLite 存储层
-├── cli.py              # CLI 入口
-├── fetcher/            # 采集模块
-│   ├── rss_fetcher.py  # RSS 采集
-│   ├── web_fetcher.py  # 网页采集
-│   ├── ageclub_fetcher.py  # AgeClub 专用采集
-│   ├── searxng_fetcher.py  # SearXNG 搜索采集
-│   ├── date_extractor.py   # 日期提取
-│   └── date_verifier.py    # 日期验证
-├── filter/             # LLM 筛选模块
-│   ├── pipeline.py     # 两轮筛选流水线
-│   └── llm_client.py   # LLM 客户端
-└── output/             # 输出模块
-    ├── api.py          # REST API
-    └── report.py       # 日报生成
-
-domains/                # 领域配置
-├── china-africa/       # 中非经贸
-│   ├── sources.yaml    # 信源配置
-│   ├── categories.yaml # 分类体系
-│   ├── keywords.yaml   # 关键词
-│   ├── scoring.md      # LLM 评分 prompt
-│   ├── pre_filter.md   # LLM 预筛 prompt
-│   └── web/index.html  # 前端模板
-└── elderly-care/       # 银发产业
-    └── (同上结构)
-
-skills/                 # SKILL.md 文件
-├── china-africa/SKILL.md
-└── elderly-care/SKILL.md
+sources.yaml → [Fetcher] → SQLite(raw_items) → [LLM Filter] → SQLite(scored_items) → API/日报
 ```
 
-## 核心设计原则
+四个阶段：`fetch` → `filter` → `report` → `api`，一键执行 `pipe`。
 
-1. **领域可插拔** — 加新领域只需在 `domains/` 下新建文件夹，引擎代码不动
-2. **采集全量入库** — 不做时间过滤，所有条目存入数据库
-3. **LLM 只筛近期** — 只对最近 N 天的未评分条目跑 LLM（控制成本）
-4. **展示按时间过滤** — 前端按用户选择的时间窗口过滤（24h/3d/7d/30d）
-5. **宁缺毋滥** — 无日期的条目不入库，超过时效的不展示
+### 模块分层
 
-## CLI 命令
+- **engine/fetcher/** — 采集层。每种 `kind`（rss/web/ageclub/searxng）有独立 fetcher，统一返回 `RawItem`。`runner.py` 负责并发调度、关键词过滤、日期验证补全
+- **engine/filter/** — LLM 筛选层。两轮流水线：`pre_filter()`（低成本模型去噪，批量 Y/N 决策）→ `score_items()`（强模型批量评分，输出 JSON 数组含 score/category/summary 等）
+- **engine/output/** — 输出层。`api.py` 提供 FastAPI REST API + RSS Feed，`report.py` 生成 Markdown/JSON 日报
+- **engine/evolution/** — 自动进化模块。`source_analyzer.py`（信源质量统计）、`scoring_calibrator.py`（评分分析）、`keyword_expander.py`（关键词扩展）
+- **engine/store.py** — SQLite 存储层，URL MD5 去重
+- **engine/domain.py** — 领域加载器，从 `domains/<name>/` 读取全部配置
+- **engine/models.py** — Pydantic 数据模型：`SourceDef`、`RawItem`、`ScoredItem`、`DailyReport`
+
+### 关键设计决策
+
+- **采集全量入库**，不做时间过滤；LLM 只筛最近 N 天（`score_window_days`）未评分条目以控成本
+- **分类独立时间窗口**：每个 category 在 `categories.yaml` 中有 `freshness_days`，API 按此过滤（政策30天、风险3天）
+- **日期验证**：无日期的条目通过 `date_verifier.py` 尝试从原文提取，仍然无日期则不入库
+- **LLM 调用**通过 OpenAI 兼容 API（`engine/filter/llm_client.py`），pre_filter 用 `gpt-4o-mini`，scoring 用 `gpt-4o`，均在 `.env` 配置
+
+## 开发命令
 
 ```bash
-# 采集（全量入库，无时间过滤）
-python -m engine.cli -d elderly-care fetch
+# 环境
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 
-# 筛选（只处理最近 3 天未评分条目）
-python -m engine.cli -d elderly-care filter
-
-# 生成日报
-python -m engine.cli -d elderly-care report
-
-# 一键流水线
+# 完整流水线（验证改动）
 python -m engine.cli -d elderly-care pipe
 
-# 启动 API 服务
-python -m engine.cli -d elderly-care api
+# 单步执行
+python -m engine.cli -d elderly-care fetch      # 采集
+python -m engine.cli -d elderly-care filter      # LLM 筛选
+python -m engine.cli -d elderly-care report      # 生成日报
+python -m engine.cli -d elderly-care api         # 启动 API (端口 8900)
+
+# 进化分析
+python -m engine.cli -d elderly-care evolve all     # 运行全部进化分析
+python -m engine.cli -d elderly-care evolve sources  # 信源质量报告
+
+# 详细日志
+python -m engine.cli -v -d elderly-care fetch
 ```
+
+## 环境配置
+
+`.env` 文件（前缀 `INTEL_`）：
+- `INTEL_LLM_BASE_URL` — LLM API 地址
+- `INTEL_LLM_API_KEY` — API Key
+- `INTEL_LLM_PRE_FILTER_MODEL` — 预筛模型（默认 gpt-4o-mini）
+- `INTEL_LLM_SCORING_MODEL` — 评分模型（默认 gpt-4o）
+- `INTEL_DB_PATH` — SQLite 路径（默认 data/intel.db）
 
 ## 添加新领域
 
-1. 创建 `domains/<name>/` 目录
-2. 编写 `sources.yaml`（信源配置）
-3. 编写 `categories.yaml`（分类体系）
-4. 编写 `keywords.yaml`（关键词列表）
-5. 编写 `scoring.md`（LLM 评分 prompt）
-6. 编写 `pre_filter.md`（LLM 预筛 prompt）
-7. 运行 `python -m engine.cli -d <name> pipe`
+在 `domains/<name>/` 下创建 6 个文件即可，引擎代码无需修改：
+1. `sources.yaml` — 信源配置（必填字段：id, name, kind, url）
+2. `categories.yaml` — 分类体系，每个分类有独立 `freshness_days`
+3. `keywords.yaml` — 关键词列表（供 `keywords_filter: true` 的信源使用）
+4. `scoring.md` — LLM 评分 system prompt
+5. `pre_filter.md` — LLM 预筛 system prompt
+6. `web/index.html` — 前端面板
 
 ## 添加新信源
 
-在 `domains/<name>/sources.yaml` 中添加：
-
+在 `domains/<name>/sources.yaml` 的 `sources:` 列表中追加：
 ```yaml
 - id: new_source
-  name: 新信源名称
-  kind: rss  # rss / web / ageclub / searxng
-  url: https://example.com/feed
-  tier: T1   # T1 / T1.5 / T2
-  lang: zh   # zh / en / ja
-  keywords_filter: false  # true = 用关键词过滤
-  tags: [标签1, 标签2]
+  name: 名称
+  kind: rss          # rss / web / ageclub / searxng
+  url: https://...
+  tier: T1           # T1(必须) / T1.5(重要) / T2(参考)
+  lang: zh           # zh / en / ja / fr
+  keywords_filter: false
+  tags: [标签]
 ```
-
-## 信源类型
-
-- **rss** — RSS/Atom 订阅，天然带日期
-- **web** — 网页抓取，需要 CSS 选择器
-- **ageclub** — AgeClub 专用，自动提取原始来源
-- **searxng** — SearXNG 搜索，按关键词搜索
 
 ## API 端点
 
@@ -111,21 +99,22 @@ GET /api/items?domain=elderly-care&mode=selected&days=3
 GET /api/categories?domain=elderly-care
 GET /api/sources?domain=elderly-care
 GET /api/stats?domain=elderly-care
+GET /api/trending?domain=elderly-care
 GET /api/report/{date}?domain=elderly-care
 GET /rss/curated?domain=elderly-care
 GET /skill/{skill_name}/SKILL.md
 ```
 
-## 开发规范
+## 代码风格
 
-- 新增功能先在 `engine/` 下实现，再在 `domains/` 配置
-- LLM prompt 修改在 `scoring.md` 和 `pre_filter.md` 中
+- Python 3.11+，使用 `from __future__ import annotations`
+- 类型注解用 `X | None` 而非 `Optional[X]`（除与 Pydantic 兼容外）
+- LLM prompt 修改在 `domains/<name>/scoring.md` 和 `pre_filter.md`
 - 前端模板在 `domains/<name>/web/index.html`
-- 每次改动后跑一次 `python -m engine.cli -d <name> pipe` 验证
 
 ## 常见任务
 
-**测试单个信源：**
+**测试单个信源采集：**
 ```bash
 python3 -c "
 from engine.fetcher.rss_fetcher import fetch_rss
@@ -136,25 +125,12 @@ print(f'{len(items)} items')
 "
 ```
 
-**查看数据库内容：**
+**查看数据库统计：**
 ```bash
 python3 -c "
 from engine.store import Store
 s = Store()
 rows = s.conn.execute('SELECT source_id, COUNT(*) FROM raw_items GROUP BY source_id').fetchall()
-for r in rows:
-    print(f'{r[0]}: {r[1]}')
-"
-```
-
-**重新生成 dashboard：**
-```bash
-python3 -c "
-import json
-from engine.store import Store
-from pathlib import Path
-s = Store()
-items = s.get_selected('elderly-care', take=500, min_score=0)
-# ... 生成 HTML
+for r in rows: print(f'{r[0]}: {r[1]}')
 "
 ```

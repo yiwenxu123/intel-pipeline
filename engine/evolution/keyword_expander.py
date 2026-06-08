@@ -159,3 +159,15 @@ def save_keyword_report(domain: str, days: int = 7) -> Path:
     path.write_text(report, encoding="utf-8")
     logger.info(f"关键词分析报告已保存: {path}")
     return path
+
+
+def suggest_keywords_yaml(domain: str, days: int = 7) -> str:
+    """生成可直接追加到 keywords.yaml 的 YAML 片段。"""
+    suggestions = suggest_new_keywords(domain, days)
+    if not suggestions:
+        return ""
+    date = datetime.now().strftime("%Y-%m-%d")
+    lines = [f"  # auto-suggested on {date}"]
+    for kw in suggestions:
+        lines.append(f"  - {kw}")
+    return "\n".join(lines)

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     domain: str = "china-africa"
 
     # 数据库
-    db_path: str = "data/intel.db"
+    db_path: str = ""  # 空值时自动按领域生成 data/intel-{domain}.db
 
     # API 服务
     api_host: str = "0.0.0.0"
@@ -36,7 +36,14 @@ class Settings(BaseSettings):
     # 日报输出
     report_dir: str = "data/reports"
 
+    # 推送通知（飞书/企业微信 Webhook URL，留空不推送）
+    notify_webhook: str = ""
+
     model_config = {"env_file": ".env", "env_prefix": "INTEL_"}
+
+    def model_post_init(self, __context):
+        if not self.db_path:
+            self.db_path = f"data/intel-{self.domain}.db"
 
 
 settings = Settings()

@@ -9,7 +9,7 @@ from typing import Optional
 from engine.config import settings
 from engine.domain import DomainConfig
 from engine.filter.llm_client import chat
-from engine.models import RawItem, ScoredItem
+from engine.models import RawItem, ScoredItem, FilterResult
 
 logger = logging.getLogger(__name__)
 
@@ -134,14 +134,23 @@ def score_items(items: list[RawItem], domain: DomainConfig, batch_size: int = 5)
 
 
 def _parse_json_array(text: str) -> list[dict]:
-    """从 LLM 响应中提取 JSON 数组，兼容 markdown 代码块。"""
+    """从 LLM 响应中提取 JSON 数组，兼容 markdown 代码块和常见格式问题。"""
+    import re
+
     json_str = text.strip()
-    if "```" in json_str:
+
+    # 1. 提取代码块内容（支持 ```json ... ``` 和 ``` ... ```）
+    code_block = re.search(r'```(?:json)?\s*\n?(.*?)```', json_str, re.DOTALL)
+    if code_block:
+        json_str = code_block.group(1).strip()
+    elif "```" in json_str:
+        # 兜底：没有配对的代码块
         json_str = json_str.split("```")[1]
         if json_str.startswith("json"):
             json_str = json_str[4:]
-    json_str = json_str.strip()
-    # 尝试直接解析
+        json_str = json_str.strip()
+
+    # 2. 尝试直接解析
     try:
         result = json.loads(json_str)
         if isinstance(result, list):
@@ -149,22 +158,59 @@ def _parse_json_array(text: str) -> list[dict]:
         return [result]
     except json.JSONDecodeError:
         pass
-    # 尝试提取第一个 [ ... ] 块
-    import re
+
+    # 3. 尝试清理常见问题后重新解析
+    # 去掉尾部逗号：{"a":1,} → {"a":1}
+    cleaned = re.sub(r',\s*([}\]])', r'\1', json_str)
+    try:
+        result = json.loads(cleaned)
+        if isinstance(result, list):
+            return result
+        return [result]
+    except json.JSONDecodeError:
+        pass
+
+    # 4. 尝试提取第一个 [ ... ] 块
     match = re.search(r'\[\s*\{.*?\}\s*\]', json_str, re.DOTALL)
     if match:
         try:
             return json.loads(match.group())
         except json.JSONDecodeError:
-            pass
-    logger.warning(f"JSON 解析失败，原始文本前200字: {text[:200]}")
+            # 清理尾部逗号再试
+            try:
+                fixed = re.sub(r',\s*([}\]])', r'\1', match.group())
+                return json.loads(fixed)
+            except json.JSONDecodeError:
+                pass
+
+    # 5. 全部失败 — 记录原始响应供调试
+    logger.warning(f"JSON 解析失败，原始文本前300字: {text[:300]}")
     return []
 
 
-def run_pipeline(items: list[RawItem], domain: DomainConfig) -> list[ScoredItem]:
-    """完整筛选流水线：预筛 → 评分。"""
+def run_pipeline(items: list[RawItem], domain: DomainConfig) -> FilterResult:
+    """完整筛选流水线：预筛 → 评分，返回带统计的结果。"""
+    import time
+    start = time.time()
+    total_input = len(items)
+
     filtered = pre_filter(items, domain)
+    pre_passed = len(filtered)
+
     scored = score_items(filtered, domain)
-    # 按分数降序
     scored.sort(key=lambda x: x.score, reverse=True)
-    return scored
+
+    duration = time.time() - start
+    # LLM 调用次数估算：pre_filter 批次数 + score_items 批次数
+    pre_batches = (total_input + 19) // 20  # batch_size=20
+    score_batches = (pre_passed + 4) // 5   # batch_size=5
+    llm_calls = pre_batches + score_batches
+
+    return FilterResult(
+        scored_items=scored,
+        pre_filter_total=total_input,
+        pre_filter_passed=pre_passed,
+        scored_total=len(scored),
+        llm_calls=llm_calls,
+        duration_seconds=round(duration, 2),
+    )

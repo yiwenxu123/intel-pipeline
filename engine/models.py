@@ -69,3 +69,32 @@ class DailyReport(BaseModel):
     domain: str
     items: list[ScoredItem]
     stats: dict = Field(default_factory=dict)  # 抓取数、精选数、精选率等
+
+
+class FetchError(BaseModel):
+    """单个信源采集错误。"""
+
+    source_id: str
+    error: str
+    error_type: str  # timeout / parse_error / http_error / unknown
+
+
+class FetchResult(BaseModel):
+    """采集结果。"""
+
+    new_items: list[RawItem]
+    errors: list[FetchError] = Field(default_factory=list)
+    duration_seconds: float = 0.0
+    sources_total: int = 0
+    sources_success: int = 0
+
+
+class FilterResult(BaseModel):
+    """筛选结果统计。"""
+
+    scored_items: list[ScoredItem]
+    pre_filter_total: int = 0
+    pre_filter_passed: int = 0
+    scored_total: int = 0
+    llm_calls: int = 0
+    duration_seconds: float = 0.0

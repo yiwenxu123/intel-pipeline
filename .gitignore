@@ -24,11 +24,7 @@ Thumbs.db
 .env
 
 # Data (generated at runtime)
-data/intel.db
-data/reports/*.md
-data/reports/*.json
-data/dashboard-*.html
-data/intel-data.json
+data/
 
 # Logs
 *.log

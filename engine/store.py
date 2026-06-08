@@ -200,5 +200,12 @@ class Store:
         ).fetchone()["c"]
         return {"total_fetched": total, "selected": selected, "date": date}
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
     def close(self):
         self.conn.close()
