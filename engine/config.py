@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     llm_scoring_model: str = "gpt-4o"  # 第二轮：高质量评分
 
     # 当前加载的领域
-    domain: str = "china-africa"
+    domain: str = "elderly-care"
 
     # 数据库
     db_path: str = ""  # 空值时自动按领域生成 data/intel-{domain}.db

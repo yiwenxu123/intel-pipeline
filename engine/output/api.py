@@ -159,7 +159,6 @@ def get_categories(domain: str = Query(default="elderly-care")):
     from engine.domain import load_domain
     s = get_store()
 
-    # 加载分类配置
     try:
         dc = load_domain(domain)
         cat_freshness = dc.category_freshness
@@ -168,28 +167,13 @@ def get_categories(domain: str = Query(default="elderly-care")):
         cat_freshness = {}
         cat_names = {}
 
-    # 查询各分类在各自时间窗口内的条目数
-    result = []
-    for cat_id, cat_days in cat_freshness.items():
-        from datetime import timedelta
-        cutoff = datetime.now(timezone.utc) - timedelta(days=cat_days)
-        rows = s.conn.execute(
-            """SELECT COUNT(*) as cnt, AVG(score) as avg_score
-               FROM scored_items
-               WHERE domain = ? AND category = ? AND score >= 6.0
-               AND created_at >= ?""",
-            (domain, cat_id, cutoff.isoformat()),
-        ).fetchall()
-        cnt = rows[0]["cnt"] if rows else 0
-        avg = rows[0]["avg_score"] if rows and rows[0]["avg_score"] else 0
-        result.append({
-            "id": cat_id,
-            "name": cat_names.get(cat_id, cat_id),
-            "cnt": cnt,
-            "avg_score": round(avg, 1) if avg else 0,
-            "freshness_days": cat_days,
-        })
-
+    stats = s.get_category_stats(domain, cat_freshness)
+    result = [
+        {"id": st["id"], "name": cat_names.get(st["id"], st["id"]),
+         "cnt": st["cnt"], "avg_score": st["avg_score"],
+         "freshness_days": cat_freshness.get(st["id"], 7)}
+        for st in stats
+    ]
     return {"categories": result}
 
 
@@ -200,12 +184,8 @@ def get_sources(domain: str = Query(default="elderly-care")):
     s = get_store()
     src_map = _get_source_map(domain)
 
-    rows = s.conn.execute(
-        """SELECT source_id, COUNT(*) as cnt
-           FROM raw_items GROUP BY source_id ORDER BY cnt DESC""",
-    ).fetchall()
+    rows = s.get_source_stats()
 
-    # 信源健康状态
     try:
         health_data = analyze_source_quality(domain, days=7)
         health_map = {h["source_id"]: h["status"] for h in health_data.get("sources", [])}
@@ -214,10 +194,9 @@ def get_sources(domain: str = Query(default="elderly-care")):
 
     sources = []
     for r in rows:
-        d = dict(r)
-        d["name"] = src_map.get(d["source_id"], d["source_id"])
-        d["health"] = health_map.get(d["source_id"], "unknown")
-        sources.append(d)
+        r["name"] = src_map.get(r["source_id"], r["source_id"])
+        r["health"] = health_map.get(r["source_id"], "unknown")
+        sources.append(r)
 
     return {"sources": sources}
 

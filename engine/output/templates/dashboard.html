@@ -306,7 +306,7 @@ function loadCategories(items) {
     const label = catLabels[cat] || cat;
     const active = state.category === cat ? 'active' : '';
     const dimmed = (counts[cat] || 0) === 0 ? 'opacity-40' : '';
-    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setCategory('${cat}')">
+    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setCategory('${escapeHtml(cat)}')">
       <span>${escapeHtml(label)}</span><span class="text-stone-400 text-xs">${counts[cat] || 0}</span></div>`;
   }
   list.innerHTML = html;
@@ -327,7 +327,7 @@ function loadSources(items) {
     const active = state.sourceId === sid ? 'active' : '';
     const dimmed = cnt === 0 ? 'opacity-40' : '';
     const name = getSourceName(sid);
-    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setSource('${sid}')">
+    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setSource('${escapeHtml(sid)}')">
       <span class="truncate" title="${escapeHtml(sid)}">${escapeHtml(name)}</span><span class="text-stone-400 text-xs shrink-0 ml-1">${cnt}</span></div>`;
   }
   list.innerHTML = html;

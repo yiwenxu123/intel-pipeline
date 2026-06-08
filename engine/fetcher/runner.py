@@ -32,11 +32,10 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> Fetch
     start_time = time.time()
 
     keywords = domain.keywords
-    keywords_filter_count = 0
     fetch_errors: list[FetchError] = []
 
-    def _fetch_one(source: SourceDef):
-        nonlocal keywords_filter_count
+    def _fetch_one(source: SourceDef) -> tuple[list[RawItem], int]:
+        """采集单个信源，返回 (条目列表, 关键词过滤数)。"""
         try:
             if source.kind == SourceKind.RSS:
                 items = fetch_rss(source)
@@ -47,36 +46,38 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> Fetch
             elif source.kind == SourceKind.AGECLUB:
                 items = fetch_ageclub(source)
             else:
-                return []
+                return [], 0
 
             # 关键词过滤
+            kw_filtered = 0
             if source.keywords_filter and keywords:
                 before = len(items)
                 items = [i for i in items if _match_keywords(i, keywords)]
-                filtered = before - len(items)
-                if filtered > 0:
-                    keywords_filter_count += filtered
-                    logger.info(f"关键词过滤 [{source.id}]: {before} → {len(items)} 条（过滤 {filtered} 条）")
-            return items
+                kw_filtered = before - len(items)
+                if kw_filtered > 0:
+                    logger.info(f"关键词过滤 [{source.id}]: {before} → {len(items)} 条（过滤 {kw_filtered} 条）")
+            return items, kw_filtered
         except Exception as e:
             logger.error(f"信源 [{source.id}] 处理异常: {e}")
-            error_type = "timeout" if "timeout" in str(type(e).__name__).lower() else \
-                         "http_error" if "http" in str(type(e).__name__).lower() else \
-                         "parse_error" if "parse" in str(type(e).__name__).lower() else "unknown"
+            etype = type(e).__name__.lower()
+            error_type = "timeout" if "timeout" in etype else \
+                         "http_error" if "http" in etype else \
+                         "parse_error" if "parse" in etype else "unknown"
             fetch_errors.append(FetchError(source_id=source.id, error=str(e), error_type=error_type))
-            return []
+            return [], 0
 
-    # ── 采集所有信源 ──
+    # ── 采集所有信源（主线程汇总，避免数据竞争） ──
     all_raw: list[RawItem] = []
+    keywords_filter_count = 0
     enabled_sources = [s for s in domain.sources if s.enabled]
     logger.info(f"开始采集领域 [{domain.name}]，共 {len(enabled_sources)} 个信源")
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(_fetch_one, src): src for src in enabled_sources}
         for future in as_completed(futures):
-            src = futures[future]
-            items = future.result()
+            items, kw_count = future.result()
             all_raw.extend(items)
+            keywords_filter_count += kw_count
 
     if keywords_filter_count > 0:
         logger.info(f"关键词过滤总计丢弃 {keywords_filter_count} 条无关条目")
