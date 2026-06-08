@@ -221,13 +221,44 @@ def api():
 
 @cli.command()
 def pipe():
-    """完整流水线：fetch → filter → report 一键执行。"""
-    console.print("🔄 执行完整流水线...\n")
-    ctx = click.get_current_context()
-    ctx.invoke(fetch)
-    ctx.invoke(filter)
-    ctx.invoke(report)
-    console.print("\n🎉 流水线执行完毕！")
+    """完整流水线：fetch → filter → report → notify 一键执行。"""
+    from engine.domain import load_domain
+    from engine.pipeline import run_full_pipeline
+
+    domain = load_domain()
+    console.print(f"🔄 执行 [{domain.name}] 完整流水线...\n")
+
+    result = run_full_pipeline(domain)
+
+    if result.error:
+        console.print(f"❌ 管道失败: {result.error}")
+        return
+
+    # 采集结果
+    if result.fetch:
+        fr = result.fetch
+        console.print(f"✅ 采集: 新增 {len(fr.new_items)} 条 | "
+                      f"信源 {fr.sources_success}/{fr.sources_total} | "
+                      f"耗时 {fr.duration_seconds}s")
+        if fr.errors:
+            for err in fr.errors:
+                console.print(f"   ⚠️  {err.source_id}: {err.error}")
+
+    # 筛选结果
+    if result.filter:
+        flt = result.filter
+        console.print(f"✅ 筛选: {flt.scored_total} 条评分 | "
+                      f"预筛 {flt.pre_filter_passed}/{flt.pre_filter_total}")
+
+    # 日报
+    if result.report_path:
+        console.print(f"✅ 日报: {result.report_path}")
+
+    # 推送
+    if result.notified:
+        console.print(f"✅ 推送: 已发送")
+
+    console.print(f"\n🎉 流水线执行完毕！总耗时 {result.duration_seconds}s")
 
 
 # ── 自动进化命令组 ──

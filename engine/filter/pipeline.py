@@ -93,9 +93,34 @@ def score_items(items: list[RawItem], domain: DomainConfig, batch_size: int = 5)
 
         # 解析 JSON 数组
         results = _parse_json_array(response)
+
+        # 解析结果不足时，逐条重试缺失的条目
+        if 0 < len(results) < len(batch):
+            missing_indices = [j for j in range(len(batch)) if j >= len(results)]
+            logger.warning(f"评分结果不足：收到 {len(results)}/{len(batch)} 条，逐条重试 {len(missing_indices)} 条")
+            for mi in missing_indices:
+                retry_item = batch[mi]
+                retry_msg = (
+                    "请对以下情报评分并分类，输出一个 JSON 对象（不是数组）。\n\n"
+                    f"标题：{retry_item.title}\n"
+                    f"来源：{retry_item.source_id}\n"
+                    f"内容：{retry_item.content[:600]}\n"
+                    f"链接：{retry_item.url}"
+                )
+                retry_resp = chat(model=settings.llm_scoring_model, system=system, user=retry_msg, temperature=0.2)
+                retry_results = _parse_json_array(retry_resp)
+                if retry_results:
+                    results.append(retry_results[0])
+                else:
+                    results.append({})  # 空 dict 触发 fallback
+
         for j, item in enumerate(batch):
             if j < len(results):
                 r = results[j]
+                if not r:
+                    # 空结果（重试也失败），使用 fallback
+                    r = {"score": 5.0, "category": "uncategorized", "summary": item.title,
+                         "reason": "LLM 评分失败（重试），保留待人工审核"}
                 # 确定来源显示名：优先用 LLM 输出的 source_display，其次用原始来源，最后用 source_id
                 source_display = r.get("source_display", "") or item.extra.get("original_source", "") or item.source_id
                 # 确定标题：优先用 LLM 翻译的 title_display，其次用原标题
@@ -103,8 +128,8 @@ def score_items(items: list[RawItem], domain: DomainConfig, batch_size: int = 5)
                 scored.append(
                     ScoredItem(
                         raw=item,
-                        score=float(r.get("score", 0)),
-                        category=r.get("category", ""),
+                        score=float(r.get("score", 5.0)),
+                        category=r.get("category", "uncategorized"),
                         tags=r.get("tags", []),
                         summary=r.get("summary", item.title),
                         key_points=r.get("key_points", []),
@@ -184,7 +209,19 @@ def _parse_json_array(text: str) -> list[dict]:
                 pass
 
     # 5. 全部失败 — 记录原始响应供调试
-    logger.warning(f"JSON 解析失败，原始文本前300字: {text[:300]}")
+    logger.warning(f"JSON 解析失败，响应长度 {len(text)} 字符，前300字: {text[:300]}")
+    # 保存完整响应用于离线调试
+    try:
+        from pathlib import Path
+        err_dir = settings.project_root / "data" / "llm_errors"
+        err_dir.mkdir(parents=True, exist_ok=True)
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        err_path = err_dir / f"parse_fail_{ts}.txt"
+        err_path.write_text(text, encoding="utf-8")
+        logger.info(f"原始 LLM 响应已保存: {err_path}")
+    except Exception:
+        pass
     return []
 
 

@@ -13,8 +13,8 @@ def _make_raw(source_id="src1", title="标题", url="https://example.com/1", **k
         title=title,
         url=url,
         content="内容摘要",
-        published=datetime(2026, 6, 8, 10, 0, 0),
-        fetched_at=datetime(2026, 6, 8, 12, 0, 0),
+        published=datetime.now(),
+        fetched_at=datetime.now(),
         lang="zh",
     )
     defaults.update(kwargs)
@@ -127,11 +127,13 @@ def test_get_selected_by_query(store):
 # ── get_stats ──
 
 def test_get_stats(store):
+    from datetime import datetime
     raw = _make_raw()
     rid = store.save_raw(raw)
     store.save_scored(rid, "test-domain", _make_scored(raw, score=7.0))
 
-    stats = store.get_stats("test-domain", date="2026-06-08")
+    today = datetime.now().strftime("%Y-%m-%d")
+    stats = store.get_stats("test-domain", date=today)
     assert stats["total_fetched"] >= 1
     assert stats["selected"] >= 1
 
