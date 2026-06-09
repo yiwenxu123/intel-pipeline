@@ -345,6 +345,7 @@ sources:
     tier: T1
     type: overseas
     lang: ja
+    enabled: false  # 404 Not Found，RSS 地址失效
     keywords_filter: true
     tags: [科技, 养老, 日本]
 
@@ -355,6 +356,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: ja
+    enabled: false  # 404 Not Found，RSS 地址失效
     keywords_filter: true
     tags: [健康, 养老, 日本]
 
@@ -376,6 +378,7 @@ sources:
     tier: T1
     type: overseas
     lang: en
+    enabled: false  # 403 Forbidden，反爬
     keywords_filter: false
     tags: [养老住宅, 美国, 运营]
 
@@ -386,6 +389,7 @@ sources:
     tier: T1
     type: overseas
     lang: en
+    enabled: false  # 404 Not Found，RSS 地址失效
     keywords_filter: false
     tags: [老龄化, 政策, 美国]
 
@@ -396,6 +400,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
+    enabled: false  # 采集到 0 条，RSS 格式可能已变更
     keywords_filter: true
     tags: [退休, 养老, 美国]
 
@@ -407,6 +412,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
+    enabled: false  # SSL 错误
     keywords_filter: false
     tags: [老龄化, 欧洲, 政策]
 
@@ -417,6 +423,7 @@ sources:
     tier: T1.5
     type: policy
     lang: en
+    enabled: false  # 404 Not Found，RSS 地址失效
     keywords_filter: true
     tags: [政策, 社会, 欧洲]
 
@@ -428,6 +435,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
+    enabled: false  # 404 Not Found，RSS 地址失效
     keywords_filter: true
     tags: [新闻, 韩国, 养老]
 
@@ -438,6 +446,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
+    enabled: false  # 采集到 0 条，RSS 格式可能已变更
     keywords_filter: true
     tags: [新闻, 韩国, 养老]
 
@@ -449,6 +458,7 @@ sources:
     tier: T1
     type: research
     lang: en
+    enabled: false  # 404 Not Found，RSS 地址失效
     keywords_filter: false
     tags: [健康, 老龄化, 国际]
 
@@ -459,6 +469,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
+    enabled: false  # 采集到 0 条，RSS 格式可能已变更
     keywords_filter: false
     tags: [养老, 国际, 公益]
 
