@@ -44,6 +44,7 @@ sources:
     url: http://www.customs.gov.cn/customs/302249/zfxxgk/2799825/302274/index.html
     tier: T1.5
     lang: zh
+    enabled: false  # 412 Precondition Failed，反爬机制，暂时禁用
     selectors:
       article: ".conList li"
       title: "a"
@@ -82,19 +83,21 @@ sources:
     tags: [贸易服务, 智库]
 
   - id: pku_africa
-    name: 北京大学非洲研究中心
+    name: 非洲研究中心
     kind: web
-    url: http://africancenter.pku.edu.cn/
+    url: https://africacenter.org/
     tier: T1.5
-    lang: zh
+    lang: en
+    keywords_filter: true
     tags: [学术, 研究]
 
   - id: cass_africa
     name: 中国社科院西亚非洲研究所
     kind: web
-    url: https://cssn.cn/sjs/sjs_sjzx/
+    url: https://cssn.cn/
     tier: T1.5
     lang: zh
+    keywords_filter: true
     tags: [学术, 研究]
 
   # ━━━ 国际组织 ━━━
@@ -112,6 +115,7 @@ sources:
     url: https://www.afdb.org/en/news-and-events/rss
     tier: T2
     lang: en
+    enabled: false  # 403 Forbidden，暂时禁用
     tags: [金融, 投资]
 
   - id: worldbank_africa
@@ -170,14 +174,16 @@ sources:
     url: https://www.reutersagency.com/feed/?best-topics=africa&post_type=best
     tier: T1.5
     lang: en
+    enabled: false  # URL 已失效，暂时禁用
     tags: [新闻, 财经]
 
   - id: cgtn_africa
-    name: CGTN Africa
+    name: CGTN World
     kind: rss
-    url: https://www.cgtn.com/subscribe/rss/section/africa.xml
+    url: https://www.cgtn.com/subscribe/rss/section/world.xml
     tier: T1
     lang: en
+    keywords_filter: true
     tags: [新闻, 中国视角]
 
   - id: china_daily
@@ -187,6 +193,15 @@ sources:
     tier: T1.5
     lang: en
     tags: [新闻, 中国]
+
+  - id: globaltimes
+    name: 环球时报
+    kind: rss
+    url: https://www.globaltimes.cn/rss/outbrain.xml
+    tier: T1.5
+    lang: zh
+    keywords_filter: true
+    tags: [新闻, 中国视角]
 
   # ━━━ X/Twitter 信源（关键词监控，需自行接入） ━━━
   # - id: x_chinafrica
