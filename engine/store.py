@@ -220,16 +220,29 @@ class Store:
         return [dict(r) for r in rows]
 
     def get_stats(self, domain: str, date: Optional[str] = None) -> dict:
-        """获取统计信息。"""
-        date = date or datetime.now().strftime("%Y-%m-%d")
-        total = self.conn.execute(
-            "SELECT COUNT(*) as c FROM raw_items WHERE fetched_at LIKE ?", (f"{date}%",)
-        ).fetchone()["c"]
-        selected = self.conn.execute(
-            "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at LIKE ? AND score >= 6.0",
-            (domain, f"{date}%"),
-        ).fetchone()["c"]
-        return {"total_fetched": total, "selected": selected, "date": date}
+        """获取统计信息。
+
+        Args:
+            date: 按日期过滤（YYYY-MM-DD）。留空返回累计统计。
+        """
+        if date:
+            total = self.conn.execute(
+                "SELECT COUNT(*) as c FROM raw_items WHERE fetched_at LIKE ?", (f"{date}%",)
+            ).fetchone()["c"]
+            selected = self.conn.execute(
+                "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at LIKE ? AND score >= 6.0",
+                (domain, f"{date}%"),
+            ).fetchone()["c"]
+            return {"total_fetched": total, "selected": selected, "date": date}
+        else:
+            total = self.conn.execute(
+                "SELECT COUNT(*) as c FROM raw_items"
+            ).fetchone()["c"]
+            selected = self.conn.execute(
+                "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND score >= 6.0",
+                (domain,),
+            ).fetchone()["c"]
+            return {"total_fetched": total, "selected": selected, "date": "all"}
 
     def __enter__(self):
         return self
