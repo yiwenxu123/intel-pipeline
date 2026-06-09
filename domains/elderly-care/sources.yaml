@@ -337,6 +337,131 @@ sources:
     keywords_filter: true
     tags: [韩国, 科技, 银发经济]
 
+  # -- 新增海外信源：日本 --
+  - id: nikkei_xtech
+    name: 日経クロステック
+    kind: rss
+    url: https://xtech.nikkei.com/rss/feed/nikkei_xtech.xml
+    tier: T1
+    type: overseas
+    lang: ja
+    keywords_filter: true
+    tags: [科技, 养老, 日本]
+
+  - id: nikkei_health
+    name: 日経新聞 健康
+    kind: rss
+    url: https://www.nikkei.com/rss/genre/health.xml
+    tier: T1.5
+    type: overseas
+    lang: ja
+    keywords_filter: true
+    tags: [健康, 养老, 日本]
+
+  - id: mhlw_japan
+    name: 厚生労働省
+    kind: web
+    url: https://www.mhlw.go.jp/
+    tier: T1
+    type: policy
+    lang: ja
+    keywords_filter: false
+    tags: [政策, 养老, 日本]
+
+  # -- 新增海外信源：美国 --
+  - id: mcknights
+    name: McKnight's Senior Living
+    kind: rss
+    url: https://www.mcknightsseniorliving.com/feed/
+    tier: T1
+    type: overseas
+    lang: en
+    keywords_filter: false
+    tags: [养老住宅, 美国, 运营]
+
+  - id: ncoa
+    name: National Council on Aging
+    kind: rss
+    url: https://www.ncoa.org/feed/
+    tier: T1
+    type: overseas
+    lang: en
+    keywords_filter: false
+    tags: [老龄化, 政策, 美国]
+
+  - id: aarp
+    name: AARP
+    kind: rss
+    url: https://www.aarp.org/rss/
+    tier: T1.5
+    type: overseas
+    lang: en
+    keywords_filter: true
+    tags: [退休, 养老, 美国]
+
+  # -- 新增海外信源：欧洲 --
+  - id: ageingeurope
+    name: Ageing Europe
+    kind: rss
+    url: https://ageing-europe.com/feed/
+    tier: T1.5
+    type: overseas
+    lang: en
+    keywords_filter: false
+    tags: [老龄化, 欧洲, 政策]
+
+  - id: ec_social
+    name: European Commission Social
+    kind: rss
+    url: https://ec.europa.eu/social/rss.xml
+    tier: T1.5
+    type: policy
+    lang: en
+    keywords_filter: true
+    tags: [政策, 社会, 欧洲]
+
+  # -- 新增海外信源：韩国 --
+  - id: koreajoongang
+    name: Korea JoongAng Daily
+    kind: rss
+    url: https://koreajoongangdaily.joins.com/rss/
+    tier: T1.5
+    type: overseas
+    lang: en
+    keywords_filter: true
+    tags: [新闻, 韩国, 养老]
+
+  - id: koreaherald
+    name: The Korea Herald
+    kind: rss
+    url: https://www.koreaherald.com/rss/
+    tier: T1.5
+    type: overseas
+    lang: en
+    keywords_filter: true
+    tags: [新闻, 韩国, 养老]
+
+  # -- 新增海外信源：国际组织 --
+  - id: who_ageing
+    name: WHO Ageing
+    kind: rss
+    url: https://www.who.int/rss/feeds/ageing.xml
+    tier: T1
+    type: research
+    lang: en
+    keywords_filter: false
+    tags: [健康, 老龄化, 国际]
+
+  - id: helpage
+    name: HelpAge International
+    kind: rss
+    url: https://www.helpage.org/rss/
+    tier: T1.5
+    type: overseas
+    lang: en
+    keywords_filter: false
+    tags: [养老, 国际, 公益]
+
   # ━━━ T1.5 热榜 + 关键词过滤 ━━━
 
   - id: baidu_hot
