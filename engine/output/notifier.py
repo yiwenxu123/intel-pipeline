@@ -11,6 +11,11 @@ from engine.config import settings
 
 logger = logging.getLogger(__name__)
 
+DOMAIN_NAMES = {
+    "elderly-care": "银发产业",
+    "china-africa": "中非经贸",
+}
+
 
 def send_webhook(webhook_url: str, title: str, content: str) -> bool:
     """向 Webhook 发送消息。自动检测飞书/企业微信格式。
@@ -83,11 +88,12 @@ def notify_report(domain_name: str, stats: dict, top_items: list[dict]) -> bool:
     from datetime import datetime
     date = datetime.now().strftime("%Y-%m-%d")
 
+    display_name = DOMAIN_NAMES.get(domain_name, domain_name)
     total = stats.get("total_fetched", 0)
     selected = stats.get("selected", 0)
     rate = f"{selected / max(total, 1) * 100:.1f}%" if total else "0%"
 
-    title = f"📊 {domain_name}情报日报 | {date}"
+    title = f"📊 {display_name}情报 | {date}"
 
     lines = [
         f"采集 **{total}** 条 → 精选 **{selected}** 条（精选率 {rate}）",
