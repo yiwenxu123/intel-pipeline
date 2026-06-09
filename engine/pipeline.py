@@ -26,6 +26,7 @@ class PipelineResult:
         self.fetch: FetchResult | None = None
         self.filter: FilterResult | None = None
         self.report_path: str | None = None
+        self.lifecycle: dict | None = None
         self.notified: bool = False
         self.error: str | None = None
         self.duration_seconds: float = 0.0
@@ -115,7 +116,54 @@ def run_full_pipeline(domain: DomainConfig, notify: bool = True) -> PipelineResu
     except Exception as e:
         logger.error(f"[{domain.name}] 日报阶段失败: {e}")
 
-    # ── 4. 推送通知 ──
+    # ── 4. 生命周期检查（信源度量 + 自动降级） ──
+    try:
+        from engine.evolution.source_lifecycle import run_lifecycle_check
+        lifecycle = run_lifecycle_check(domain.name)
+        result.lifecycle = lifecycle
+        if lifecycle.get("disabled"):
+            logger.warning(f"[{domain.name}] 自动降级 {len(lifecycle['disabled'])} 个信源: {lifecycle['disabled']}")
+        else:
+            logger.info(f"[{domain.name}] 生命周期检查完成，无降级")
+    except Exception as e:
+        logger.error(f"[{domain.name}] 生命周期检查失败: {e}")
+
+    # ── 4.5 关键词暂存验证 ──
+    try:
+        from engine.evolution.keyword_staging import get_staged_keywords, record_trial_result, check_and_apply
+        staged_kws = get_staged_keywords(domain.name)
+        if staged_kws and result.filter:
+            # 用当前通过率与历史平均对比
+            current_rate = result.filter.pre_filter_passed / max(result.filter.pre_filter_total, 1)
+            with Store() as store:
+                hist = store.conn.execute(
+                    "SELECT AVG(yield_rate) as avg FROM source_metrics WHERE domain = ?",
+                    (domain.name,),
+                ).fetchone()
+            hist_avg = hist["avg"] if hist and hist["avg"] else 0.05
+            # 如果当前通过率高于历史平均，接受暂存关键词
+            record_trial_result(domain.name, current_rate, hist_avg)
+            kw_result = check_and_apply(domain.name)
+            if kw_result.get("action") == "applied":
+                logger.info(f"[{domain.name}] 关键词自动验证通过，已合并 {len(kw_result.get('keywords', []))} 个")
+            elif kw_result.get("action") == "rejected":
+                logger.info(f"[{domain.name}] 关键词自动验证未通过，已回滚")
+    except Exception as e:
+        logger.error(f"[{domain.name}] 关键词验证失败: {e}")
+
+    # ── 4.6 评分校准检查 ──
+    try:
+        from engine.evolution.scoring_injector import run_calibration_check
+        cal_result = run_calibration_check(domain.name, days=7)
+        cal_count = len(cal_result.get("calibrations", []))
+        if cal_count > 0:
+            logger.info(f"[{domain.name}] 生成 {cal_count} 条评分校准指令，下次评分自动注入")
+        else:
+            logger.info(f"[{domain.name}] 评分分布正常，无需校准")
+    except Exception as e:
+        logger.error(f"[{domain.name}] 评分校准检查失败: {e}")
+
+    # ── 5. 推送通知 ──
     if notify:
         try:
             if settings.notify_webhook:
