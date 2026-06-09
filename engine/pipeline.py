@@ -31,8 +31,12 @@ class PipelineResult:
         self.duration_seconds: float = 0.0
 
 
-def run_full_pipeline(domain: DomainConfig) -> PipelineResult:
-    """执行完整管道：采集 → 筛选 → 日报 → 推送。"""
+def run_full_pipeline(domain: DomainConfig, notify: bool = True) -> PipelineResult:
+    """执行完整管道：采集 → 筛选 → 日报 → 推送。
+
+    Args:
+        notify: 是否在完成后推送飞书通知（默认 True）。
+    """
     result = PipelineResult()
     start = time.time()
 
@@ -112,17 +116,18 @@ def run_full_pipeline(domain: DomainConfig) -> PipelineResult:
         logger.error(f"[{domain.name}] 日报阶段失败: {e}")
 
     # ── 4. 推送通知 ──
-    try:
-        if settings.notify_webhook:
-            from engine.output.notifier import notify_report
-            with Store() as store:
-                selected = store.get_selected(domain.name, take=5, min_score=6.0)
-                stats = store.get_stats(domain.name)
-            notify_report(domain.name, stats, selected)
-            result.notified = True
-            logger.info(f"[{domain.name}] 推送通知已发送")
-    except Exception as e:
-        logger.error(f"[{domain.name}] 推送通知失败: {e}")
+    if notify:
+        try:
+            if settings.notify_webhook:
+                from engine.output.notifier import notify_report
+                with Store() as store:
+                    selected = store.get_selected(domain.name, take=5, min_score=6.0)
+                    stats = store.get_stats(domain.name)
+                notify_report(domain.name, stats, selected)
+                result.notified = True
+                logger.info(f"[{domain.name}] 推送通知已发送")
+        except Exception as e:
+            logger.error(f"[{domain.name}] 推送通知失败: {e}")
 
     result.duration_seconds = round(time.time() - start, 2)
     return result

@@ -13,14 +13,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline_job():
+def run_pipeline_job(notify: bool = True):
     """定时任务：调用公共管道函数。"""
     from engine.domain import load_domain
     from engine.pipeline import run_full_pipeline
 
     domain = load_domain()
     logger.info(f"[{domain.name}] 定时管道触发")
-    result = run_full_pipeline(domain)
+    result = run_full_pipeline(domain, notify=notify)
 
     if result.error:
         logger.error(f"[{domain.name}] 管道执行失败: {result.error}")
@@ -37,18 +37,21 @@ def start_scheduler():
     """启动调度器。"""
     scheduler = BlockingScheduler()
 
-    # 每天 8:00 和 14:00 执行完整流水线
+    # 早间：采集 + 推送
     scheduler.add_job(
         run_pipeline_job,
         CronTrigger(hour=8, minute=0),
         id="morning_pipeline",
         name="早间情报采集",
+        kwargs={"notify": True},
     )
+    # 午间：只采集，不推送
     scheduler.add_job(
         run_pipeline_job,
         CronTrigger(hour=14, minute=0),
         id="afternoon_pipeline",
         name="午间情报采集",
+        kwargs={"notify": False},
     )
 
     logger.info("调度器已启动，将在每天 8:00 和 14:00 执行流水线")
