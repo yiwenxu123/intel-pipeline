@@ -64,6 +64,18 @@ class Store:
             CREATE INDEX IF NOT EXISTS idx_raw_url_hash ON raw_items(url_hash);
             CREATE INDEX IF NOT EXISTS idx_scored_domain ON scored_items(domain);
             CREATE INDEX IF NOT EXISTS idx_scored_created ON scored_items(created_at);
+
+            CREATE TABLE IF NOT EXISTS source_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                domain TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                date TEXT NOT NULL,
+                fetched INTEGER DEFAULT 0,
+                selected INTEGER DEFAULT 0,
+                yield_rate REAL DEFAULT 0.0,
+                UNIQUE(domain, source_id, date)
+            );
+            CREATE INDEX IF NOT EXISTS idx_metrics_domain_date ON source_metrics(domain, date);
         """)
         self.conn.commit()
 

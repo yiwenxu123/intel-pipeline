@@ -306,9 +306,10 @@ def evolve_scoring(days: int):
 
 @evolve.command()
 @click.option("--days", default=7, help="分析天数")
-@click.option("--apply", "do_apply", is_flag=True, help="将建议关键词追加到 keywords.yaml")
-def keywords(days: int, do_apply: bool):
-    """关键词扩展分析。"""
+@click.option("--apply", "do_apply", is_flag=True, help="直接追加到 keywords.yaml（跳过验证）")
+@click.option("--stage", is_flag=True, default=True, help="暂存建议供下次管道自动验证（默认）")
+def keywords(days: int, do_apply: bool, stage: bool):
+    """关键词扩展分析。默认暂存建议，下次管道自动验证效果。"""
     from engine.config import settings
     from engine.evolution.keyword_expander import save_keyword_report, suggest_new_keywords, suggest_keywords_yaml
     domain = settings.domain
@@ -320,7 +321,9 @@ def keywords(days: int, do_apply: bool):
         console.print(f"\n📋 建议新增 {len(suggestions)} 个关键词：")
         for kw in suggestions:
             console.print(f"  - {kw}")
+
         if do_apply:
+            # 直接应用模式
             yaml_text = suggest_keywords_yaml(domain, days)
             if yaml_text:
                 kw_path = settings.project_root / "domains" / domain / "keywords.yaml"
@@ -332,6 +335,12 @@ def keywords(days: int, do_apply: bool):
                     console.print(f"✅ 已追加到 {kw_path}")
                 else:
                     console.print("已取消")
+        elif stage:
+            # 暂存验证模式（默认）
+            from engine.evolution.keyword_staging import stage_suggestions
+            staging = stage_suggestions(domain, suggestions)
+            console.print(f"\n📦 {len(suggestions)} 个关键词已暂存，下次管道执行时自动验证效果")
+            console.print(f"   验证逻辑：暂存关键词参与采集过滤 → 对比通过率 → 自动合并或回滚")
     else:
         console.print("✅ 未发现新的关键词建议")
 
@@ -358,6 +367,61 @@ def evolve_all(days: int):
     console.print(f"  ✅ 关键词分析: {path3}")
 
     console.print(f"\n🎉 进化分析完成！")
+
+
+@evolve.command()
+def lifecycle():
+    """查看信源生命周期状态（产出率追踪 + 降级记录）。"""
+    from engine.config import settings
+    from engine.evolution.source_lifecycle import get_lifecycle_status
+    domain = settings.domain
+
+    statuses = get_lifecycle_status(domain)
+    if not statuses:
+        console.print(f"暂无 {domain} 的信源度量数据。运行 pipe 后自动生成。")
+        return
+
+    table = Table(title=f"{domain} 信源生命周期")
+    table.add_column("信源", style="cyan", width=20)
+    table.add_column("状态", width=10)
+    table.add_column("跟踪天数", justify="right", width=8)
+    table.add_column("总采集", justify="right", width=8)
+    table.add_column("总精选", justify="right", width=8)
+    table.add_column("平均产出率", justify="right", width=10)
+    table.add_column("最近日期", width=12)
+
+    status_style = {
+        "excellent": "[bold green]优秀[/]",
+        "healthy": "[green]健康[/]",
+        "low": "[yellow]低效[/]",
+        "critical": "[red]危险[/]",
+    }
+
+    for s in statuses:
+        table.add_row(
+            s["source_id"],
+            status_style.get(s["status"], s["status"]),
+            str(s["days_tracked"]),
+            str(s["total_fetched"]),
+            str(s["total_selected"]),
+            f"{s['avg_yield']*100:.1f}%",
+            s["last_date"] or "",
+        )
+    console.print(table)
+
+
+@evolve.command()
+@click.argument("source_id")
+def restore(source_id):
+    """恢复被自动降级的信源。"""
+    from engine.config import settings
+    from engine.evolution.source_lifecycle import restore_source
+    domain = settings.domain
+
+    if restore_source(domain, source_id):
+        console.print(f"✅ 信源 {source_id} 已恢复，下次采集将重新启用")
+    else:
+        console.print(f"⚠️  信源 {source_id} 未找到或不是自动降级的")
 
 
 if __name__ == "__main__":

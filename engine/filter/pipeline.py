@@ -61,7 +61,12 @@ def score_items(items: list[RawItem], domain: DomainConfig, batch_size: int = 5)
     if not items:
         return []
 
-    system = domain.scoring_prompt
+    # 注入评分校准指令（如果有）
+    try:
+        from engine.evolution.scoring_injector import inject_calibration
+        system = inject_calibration(domain.name, domain.scoring_prompt)
+    except Exception:
+        system = domain.scoring_prompt
     scored: list[ScoredItem] = []
 
     for i in range(0, len(items), batch_size):
