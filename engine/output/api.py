@@ -61,6 +61,7 @@ def get_items(
     source_id: Optional[str] = None,
     since: Optional[str] = None,
     days: Optional[int] = Query(default=None, description="最近 N 天，覆盖分类默认值"),
+    date: Optional[str] = Query(default=None, description="按发布日期精确过滤 YYYY-MM-DD"),
     take: int = Query(default=100, le=500),
     min_score: float = Query(default=6.0),
     q: Optional[str] = None,
@@ -68,6 +69,7 @@ def get_items(
     """获取情报条目列表。
 
     时间窗口逻辑：
+    - 如果传了 date，按该日期精确过滤（优先级最高）
     - 如果传了 days，全局覆盖所有分类的时间窗口
     - 如果没传 days，使用每个分类各自的 freshness_days
     """
@@ -80,6 +82,22 @@ def get_items(
         cat_freshness = dc.category_freshness
     except Exception:
         cat_freshness = {}
+
+    # date 模式：按日期精确过滤，跳过所有 days/since 逻辑
+    if date:
+        query_fn = s.get_selected if mode == "selected" else s.get_all
+        kw = dict(domain=domain, take=take, published_date=date, category=category, q=q)
+        if mode == "selected":
+            kw["min_score"] = min_score
+        items = query_fn(**kw)
+        # 注入 source_name
+        src_map = _get_source_map(domain)
+        for item in items:
+            item["source_name"] = src_map.get(item.get("source_id", ""), "")
+        if source_id:
+            items = [i for i in items if i.get("source_id") == source_id]
+        return {"domain": domain, "mode": mode, "count": len(items), "items": items,
+                "category_freshness": cat_freshness, "date": date}
 
     # 全局 days 覆盖
     global_since = None
@@ -144,6 +162,14 @@ def get_items(
         item["source_name"] = src_map.get(item.get("source_id", ""), "")
 
     return {"domain": domain, "mode": mode, "count": len(items), "items": items, "category_freshness": cat_freshness}
+
+
+@app.get("/api/dates")
+def get_dates(domain: str = Query(default="elderly-care")):
+    """获取有精选条目的日期列表（降序），用于日期导航。"""
+    s = get_store()
+    dates = s.get_available_dates(domain, min_score=6.0, limit=30)
+    return {"domain": domain, "dates": dates}
 
 
 @app.get("/api/stats")

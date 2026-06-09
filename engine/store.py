@@ -124,8 +124,13 @@ class Store:
     def _query_items(self, domain: str, min_score: float = 0.0,
                      since: Optional[str] = None, category: Optional[str] = None,
                      take: int = 50, published_since: Optional[str] = None,
+                     published_date: Optional[str] = None,
                      q: Optional[str] = None, order_by: str = "s.score DESC") -> list[dict]:
-        """统一查询方法，get_selected/get_all 共用。"""
+        """统一查询方法，get_selected/get_all 共用。
+
+        Args:
+            published_date: 按发布日期精确过滤（YYYY-MM-DD），优先级高于 published_since/since。
+        """
         sql = """
             SELECT s.*, r.title, r.url, r.content, r.published, r.source_id
             FROM scored_items s
@@ -133,7 +138,10 @@ class Store:
             WHERE s.domain = ? AND s.score >= ?
         """
         params: list = [domain, min_score]
-        if published_since:
+        if published_date:
+            sql += " AND DATE(r.published) = ?"
+            params.append(published_date)
+        elif published_since:
             sql += " AND r.published >= ?"
             params.append(published_since)
         elif since:
@@ -153,19 +161,37 @@ class Store:
     def get_selected(self, domain: str, since: Optional[str] = None, category: Optional[str] = None,
                      take: int = 50, min_score: float = 6.0,
                      published_since: Optional[str] = None,
+                     published_date: Optional[str] = None,
                      q: Optional[str] = None) -> list[dict]:
         """查询精选条目。"""
         return self._query_items(domain, min_score=min_score, since=since, category=category,
-                                 take=take, published_since=published_since, q=q,
+                                 take=take, published_since=published_since,
+                                 published_date=published_date, q=q,
                                  order_by="s.score DESC")
 
     def get_all(self, domain: str, since: Optional[str] = None, category: Optional[str] = None,
                 take: int = 100, published_since: Optional[str] = None,
+                published_date: Optional[str] = None,
                 q: Optional[str] = None) -> list[dict]:
         """查询全部条目（含低分）。"""
         return self._query_items(domain, min_score=0.0, since=since, category=category,
-                                 take=take, published_since=published_since, q=q,
+                                 take=take, published_since=published_since,
+                                 published_date=published_date, q=q,
                                  order_by="s.created_at DESC")
+
+    def get_available_dates(self, domain: str, min_score: float = 6.0, limit: int = 30) -> list[dict]:
+        """获取有精选条目的日期列表（降序），用于日期导航。"""
+        rows = self.conn.execute(
+            """SELECT DATE(r.published) as date, COUNT(*) as cnt
+               FROM scored_items s
+               JOIN raw_items r ON s.raw_id = r.id
+               WHERE s.domain = ? AND s.score >= ? AND r.published IS NOT NULL
+               GROUP BY DATE(r.published)
+               ORDER BY date DESC
+               LIMIT ?""",
+            (domain, min_score, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
     def get_category_stats(self, domain: str, cat_freshness: dict[str, int]) -> list[dict]:
         """获取各分类的条目数和平均分（按各自时间窗口）。"""
