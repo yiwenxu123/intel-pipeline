@@ -24,6 +24,7 @@ sources:
     url: https://www.mca.gov.cn/
     tier: T1
     lang: zh
+    enabled: false  # 页面 JS 动态加载，web fetcher 无法抓取；内容已被 wx_guojiaminzheng 覆盖
     keywords_filter: false
     tags: [政策, 官方]
 
@@ -79,6 +80,7 @@ sources:
     url: https://www.chinairn.com/
     tier: T1.5
     lang: zh
+    enabled: false  # 403 Forbidden，反爬
     keywords_filter: true
     tags: [产业报告, 数据]
 
@@ -349,6 +351,7 @@ sources:
     url: https://www.zhihuiyanglao.com/
     tier: T2
     lang: zh
+    enabled: false  # SSL 证书过期，暂时禁用
     keywords_filter: false
     tags: [智慧养老, 科技]
 
@@ -358,5 +361,6 @@ sources:
     url: https://elderask.cn/
     tier: T2
     lang: zh
+    enabled: false  # 持续 0 条结果，选择器可能失效
     keywords_filter: false
     tags: [养老, AI]
