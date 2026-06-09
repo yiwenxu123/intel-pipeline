@@ -27,26 +27,35 @@ DEGRADATION_WINDOW_DAYS = 7    # 连续 7 天低效则降级
 MIN_FETCH_COUNT = 5            # 至少采集 5 条才计算产出率（避免小样本误判）
 
 
-def record_daily_metrics(domain: str) -> list[dict]:
-    """记录当天各信源的产出指标。在管道执行后调用。"""
-    today = datetime.now().strftime("%Y-%m-%d")
+def record_daily_metrics(domain: str, date: str | None = None) -> list[dict]:
+    """记录指定日期各信源的产出指标。在管道执行后调用。
+
+    Args:
+        date: 日期 YYYY-MM-DD。留空自动使用数据库中最新日期。
+    """
     with Store() as store:
-        # 各信源今日采集数
+        if not date:
+            row = store.conn.execute(
+                "SELECT DATE(fetched_at) as d FROM raw_items ORDER BY fetched_at DESC LIMIT 1"
+            ).fetchone()
+            date = row["d"] if row else datetime.now().strftime("%Y-%m-%d")
+    with Store() as store:
+        # 各信源当日采集数
         fetched = store.conn.execute(
             """SELECT source_id, COUNT(*) as cnt
                FROM raw_items WHERE DATE(fetched_at) = ?
                GROUP BY source_id""",
-            (today,),
+            (date,),
         ).fetchall()
         fetched_map = {r["source_id"]: r["cnt"] for r in fetched}
 
-        # 各信源今日精选数
+        # 各信源当日精选数
         scored = store.conn.execute(
             """SELECT r.source_id, COUNT(*) as cnt
                FROM scored_items s JOIN raw_items r ON s.raw_id = r.id
                WHERE s.domain = ? AND DATE(s.created_at) = ? AND s.score >= 6.0
                GROUP BY r.source_id""",
-            (domain, today),
+            (domain, date),
         ).fetchall()
         scored_map = {r["source_id"]: r["cnt"] for r in scored}
 
@@ -59,7 +68,7 @@ def record_daily_metrics(domain: str) -> list[dict]:
                 """INSERT OR REPLACE INTO source_metrics
                    (domain, source_id, date, fetched, selected, yield_rate)
                    VALUES (?, ?, ?, ?, ?, ?)""",
-                (domain, source_id, today, fetch_cnt, select_cnt, round(yield_rate, 4)),
+                (domain, source_id, date, fetch_cnt, select_cnt, round(yield_rate, 4)),
             )
             records.append({
                 "source_id": source_id, "fetched": fetch_cnt,
