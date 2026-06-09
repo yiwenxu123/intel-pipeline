@@ -501,6 +501,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
+    enabled: false  # 采集到 0 条，RSS 格式可能已变更
     keywords_filter: false
     tags: [认知症, 国际, 研究]
 
