@@ -17,6 +17,57 @@ class SourceKind(str, Enum):
     AGECLUB = "ageclub"
 
 
+class SourceType(str, Enum):
+    """信源类型，用于差异化质量评估。"""
+    POLICY = "policy"        # 政策源（政府、监管机构）
+    RESEARCH = "research"    # 研究机构（学术、智库）
+    MEDIA = "media"          # 行业媒体（垂直媒体、公众号）
+    HOTLIST = "hotlist"      # 热榜源（百度、微博、知乎）
+    OVERSEAS = "overseas"    # 海外信源
+    GENERAL = "general"      # 通用信源（默认）
+
+
+# 信源类型对应的评估参数
+SOURCE_TYPE_CONFIG = {
+    SourceType.POLICY: {
+        "min_yield_rate": 0.01,      # 最低产出率 1%
+        "observation_days": 30,       # 观察期 30 天
+        "auto_disable": False,        # 不自动禁用
+        "description": "政策源（政府、监管机构）",
+    },
+    SourceType.RESEARCH: {
+        "min_yield_rate": 0.02,      # 最低产出率 2%
+        "observation_days": 30,       # 观察期 30 天
+        "auto_disable": False,        # 不自动禁用
+        "description": "研究机构（学术、智库）",
+    },
+    SourceType.MEDIA: {
+        "min_yield_rate": 0.05,      # 最低产出率 5%
+        "observation_days": 14,       # 观察期 14 天
+        "auto_disable": True,         # 自动禁用
+        "description": "行业媒体（垂直媒体、公众号）",
+    },
+    SourceType.HOTLIST: {
+        "min_yield_rate": 0.03,      # 最低产出率 3%
+        "observation_days": 7,        # 观察期 7 天
+        "auto_disable": True,         # 自动禁用
+        "description": "热榜源（百度、微博、知乎）",
+    },
+    SourceType.OVERSEAS: {
+        "min_yield_rate": 0.03,      # 最低产出率 3%
+        "observation_days": 14,       # 观察期 14 天
+        "auto_disable": True,         # 自动禁用
+        "description": "海外信源",
+    },
+    SourceType.GENERAL: {
+        "min_yield_rate": 0.05,      # 最低产出率 5%
+        "observation_days": 7,        # 观察期 7 天
+        "auto_disable": True,         # 自动禁用
+        "description": "通用信源（默认）",
+    },
+}
+
+
 class SourceDef(BaseModel):
     """一条信源定义，来自 sources.yaml。"""
 
@@ -25,10 +76,12 @@ class SourceDef(BaseModel):
     kind: SourceKind
     url: str
     tier: str = "T2"  # T1 / T1.5 / T2
+    type: SourceType = SourceType.GENERAL  # 信源类型，用于差异化质量评估
     lang: str = "zh"  # zh / en / fr
     schedule: str = "0 */2 * * *"  # cron 表达式
     selectors: Optional[dict] = None  # CSS 选择器，web 类型用
     enabled: bool = True
+    confirmed: bool = False  # 人工确认标记，不会被自动禁用
     tags: list[str] = Field(default_factory=list)
     keywords_filter: bool = False  # 是否用领域关键词过滤
 

@@ -37,20 +37,53 @@ def pre_filter(items: list[RawItem], domain: DomainConfig, batch_size: int = 20)
             temperature=0.1,
         )
 
-        # 解析结果
+        # 解析结果（简化格式：序号|Y 或 序号|N）
+        parsed_indices = set()
         for line in response.strip().split("\n"):
             line = line.strip()
-            if not line or "|" not in line:
+            if not line:
                 continue
-            parts = [p.strip() for p in line.split("|")]
-            if len(parts) < 2:
-                continue
-            try:
-                idx = int(parts[0]) - 1
-            except ValueError:
-                continue
-            if parts[1].upper() == "Y" and 0 <= idx < len(batch):
-                kept.append(batch[idx])
+            # 尝试解析简化格式：序号|Y 或 序号|N
+            if "|" in line:
+                parts = [p.strip() for p in line.split("|")]
+                if len(parts) >= 2:
+                    try:
+                        idx = int(parts[0]) - 1
+                        if parts[1].upper() == "Y" and 0 <= idx < len(batch):
+                            kept.append(batch[idx])
+                            parsed_indices.add(idx)
+                        elif parts[1].upper() == "N" and 0 <= idx < len(batch):
+                            parsed_indices.add(idx)
+                    except ValueError:
+                        continue
+
+        # 单条重试机制：对于未解析的条目，逐条重试（最多重试 5 条）
+        missing_indices = [j for j in range(len(batch)) if j not in parsed_indices]
+        if missing_indices:
+            retry_count = min(len(missing_indices), 5)
+            logger.info(f"预筛批次 {i//batch_size + 1}：{len(missing_indices)} 条未解析，重试 {retry_count} 条")
+            for mi in missing_indices[:retry_count]:
+                retry_item = batch[mi]
+                retry_msg = (
+                    f"请判断以下条目是否与养老/银发经济相关，输出 Y 或 N。\n\n"
+                    f"标题：{retry_item.title}\n"
+                    f"来源：{retry_item.source_id}\n"
+                    f"内容：{retry_item.content[:200]}"
+                )
+                retry_resp = chat(
+                    model=settings.llm_pre_filter_model,
+                    system=system,
+                    user=retry_msg,
+                    temperature=0.1,
+                )
+                # 解析重试结果
+                for line in retry_resp.strip().split("\n"):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.upper().startswith("Y"):
+                        kept.append(retry_item)
+                        break
 
     logger.info(f"预筛完成：{len(items)} → {len(kept)} 条")
     return kept

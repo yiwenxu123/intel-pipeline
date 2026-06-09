@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     freshness_days: int = 3
 
     # LLM 筛选窗口（只对最近 N 天的未评分条目跑 LLM）
-    score_window_days: int = 3
+    # 从 3 天扩大到 7 天，让更多有效条目进入 LLM 筛选流程
+    score_window_days: int = 7
 
     # 日报输出
     report_dir: str = "data/reports"

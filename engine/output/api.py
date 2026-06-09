@@ -85,11 +85,16 @@ def get_items(
 
     # date 模式：按日期精确过滤，跳过所有 days/since 逻辑
     if date:
-        query_fn = s.get_selected if mode == "selected" else s.get_all
-        kw = dict(domain=domain, take=take, published_date=date, category=category, q=q)
         if mode == "selected":
-            kw["min_score"] = min_score
-        items = query_fn(**kw)
+            items = s.get_selected(
+                domain=domain, take=take, published_date=date,
+                category=category, q=q, min_score=min_score,
+            )
+        else:
+            items = s.get_all(
+                domain=domain, take=take, published_date=date,
+                category=category, q=q,
+            )
         # 注入 source_name
         src_map = _get_source_map(domain)
         for item in items:
@@ -268,6 +273,98 @@ def get_evolution(domain: str = Query(default="elderly-care"), days: int = Query
         "scoring_adjustments": adjustments,
         "keyword_suggestions": kw_suggestions,
     }
+
+
+@app.get("/api/health")
+def get_health(domain: str = Query(default="elderly-care"), days: int = Query(default=7)):
+    """获取系统健康状态。"""
+    from engine.evolution.source_analyzer import analyze_source_quality
+    from engine.evolution.source_lifecycle import get_lifecycle_status
+    from engine.evolution.scoring_calibrator import analyze_scoring_distribution
+    from engine.evolution.keyword_staging import get_staging
+
+    s = get_store()
+
+    # 信源健康度
+    try:
+        source_health = analyze_source_quality(domain, days)
+        healthy_count = len([src for src in source_health.get("sources", []) if src["status"] == "healthy"])
+        total_count = len(source_health.get("sources", []))
+    except Exception:
+        source_health = {"sources": []}
+        healthy_count = 0
+        total_count = 0
+
+    # 信源生命周期状态
+    try:
+        lifecycle_status = get_lifecycle_status(domain)
+    except Exception:
+        lifecycle_status = []
+
+    # 评分分布
+    try:
+        scoring = analyze_scoring_distribution(domain, days)
+    except Exception:
+        scoring = {"overall": {}}
+
+    # 关键词暂存状态
+    try:
+        keyword_staging = get_staging(domain)
+    except Exception:
+        keyword_staging = None
+
+    # 统计数据
+    stats = s.get_stats(domain)
+
+    return {
+        "domain": domain,
+        "days": days,
+        "source_health": {
+            "healthy_count": healthy_count,
+            "total_count": total_count,
+            "sources": source_health.get("sources", []),
+        },
+        "lifecycle_status": lifecycle_status,
+        "scoring": scoring,
+        "keyword_staging": keyword_staging,
+        "stats": stats,
+    }
+
+
+@app.post("/api/sources/{source_id}/confirm")
+def confirm_source(source_id: str, domain: str = Query(default="elderly-care")):
+    """人工确认信源状态（标记为已确认，不会被自动禁用）。"""
+    from engine.evolution.source_lifecycle import confirm_source_status
+
+    try:
+        result = confirm_source_status(domain, source_id)
+        return {"success": True, "source_id": source_id, "confirmed": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/sources/{source_id}/disable")
+def disable_source(source_id: str, domain: str = Query(default="elderly-care")):
+    """手动禁用信源。"""
+    from engine.evolution.source_lifecycle import manual_disable_source
+
+    try:
+        result = manual_disable_source(domain, source_id)
+        return {"success": True, "source_id": source_id, "disabled": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/api/sources/{source_id}/enable")
+def enable_source(source_id: str, domain: str = Query(default="elderly-care")):
+    """手动启用信源。"""
+    from engine.evolution.source_lifecycle import manual_enable_source
+
+    try:
+        result = manual_enable_source(domain, source_id)
+        return {"success": True, "source_id": source_id, "enabled": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 @app.get("/api/trending")

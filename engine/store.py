@@ -107,7 +107,8 @@ class Store:
                 ),
             )
             self.conn.commit()
-            return cur.lastrowid
+            result = cur.lastrowid
+            return result if result is not None else 0
 
     # ── Scored Items ──
 
@@ -129,7 +130,8 @@ class Store:
                 ),
             )
             self.conn.commit()
-            return cur.lastrowid
+            result = cur.lastrowid
+            return result if result is not None else 0
 
     # ── 查询 ──
 
@@ -144,18 +146,21 @@ class Store:
             published_date: 按发布日期精确过滤（YYYY-MM-DD），优先级高于 published_since/since。
         """
         sql = """
-            SELECT s.*, r.title, r.url, r.content, r.published, r.source_id
+            SELECT s.*, r.title, r.url, r.content, r.published, r.source_id,
+                   COALESCE(r.published, r.fetched_at) as effective_date
             FROM scored_items s
             JOIN raw_items r ON s.raw_id = r.id
             WHERE s.domain = ? AND s.score >= ?
         """
         params: list = [domain, min_score]
         if published_date:
-            sql += " AND DATE(r.published) = ?"
-            params.append(published_date)
+            # 日期容错：对于日期明显错误的条目（如 2017 年），使用 fetched_at 替代
+            sql += " AND (DATE(r.published) = ? OR (r.published < '2020-01-01' AND DATE(r.fetched_at) = ?))"
+            params.extend([published_date, published_date])
         elif published_since:
-            sql += " AND r.published >= ?"
-            params.append(published_since)
+            # 日期容错：对于日期明显错误的条目（如 2017 年），使用 fetched_at 替代
+            sql += " AND ((r.published >= ? AND r.published >= '2020-01-01') OR (r.published < '2020-01-01' AND r.fetched_at >= ?))"
+            params.extend([published_since, published_since])
         elif since:
             sql += " AND s.created_at >= ?"
             params.append(since)

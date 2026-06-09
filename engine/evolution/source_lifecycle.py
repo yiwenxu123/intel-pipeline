@@ -17,14 +17,16 @@ from pathlib import Path
 from typing import Optional
 
 from engine.config import settings
+from engine.models import SourceType, SOURCE_TYPE_CONFIG
 from engine.store import Store
 
 logger = logging.getLogger(__name__)
 
-# 门控参数
-DEGRADATION_THRESHOLD = 0.05   # 产出率 < 5% 视为低效
+# 门控参数（默认值，会被信源类型配置覆盖）
+DEGRADATION_THRESHOLD = 0.10   # 产出率 < 10% 视为低效
 DEGRADATION_WINDOW_DAYS = 7    # 连续 7 天低效则降级
-MIN_FETCH_COUNT = 5            # 至少采集 5 条才计算产出率（避免小样本误判）
+MIN_FETCH_COUNT = 10           # 至少采集 10 条才计算产出率
+MIN_OBSERVATION_DAYS = 3       # 新信源前 3 天不标记为无效
 
 
 def record_daily_metrics(domain: str, date: str | None = None) -> list[dict]:
@@ -81,9 +83,27 @@ def record_daily_metrics(domain: str, date: str | None = None) -> list[dict]:
 
 
 def detect_degradation(domain: str) -> list[dict]:
-    """检测需要降级的信源：连续 N 天产出率 < 阈值。"""
+    """检测需要降级的信源：连续 N 天产出率 < 阈值。
+
+    根据信源类型使用不同的评估标准。
+    跳过已确认的信源。
+    """
     cutoff = (datetime.now(timezone.utc) - timedelta(days=DEGRADATION_WINDOW_DAYS)).isoformat()
     degraded = []
+
+    # 加载领域配置，获取信源类型和确认状态
+    from engine.domain import load_domain
+    try:
+        domain_config = load_domain(domain)
+        source_type_map = {s.id: s.type for s in domain_config.sources}
+        # 检查已确认的信源
+        confirmed_sources = set()
+        for s in domain_config.sources:
+            if hasattr(s, 'confirmed') and s.confirmed:
+                confirmed_sources.add(s.id)
+    except Exception:
+        source_type_map = {}
+        confirmed_sources = set()
 
     with Store() as store:
         # 获取所有信源在窗口期内的指标
@@ -92,7 +112,9 @@ def detect_degradation(domain: str) -> list[dict]:
                       COUNT(*) as days_tracked,
                       SUM(fetched) as total_fetched,
                       SUM(selected) as total_selected,
-                      AVG(yield_rate) as avg_yield
+                      AVG(yield_rate) as avg_yield,
+                      MIN(date) as first_date,
+                      MAX(date) as last_date
                FROM source_metrics
                WHERE domain = ? AND date >= ?
                GROUP BY source_id""",
@@ -101,23 +123,47 @@ def detect_degradation(domain: str) -> list[dict]:
 
         for r in rows:
             source_id = r["source_id"]
+
+            # 跳过已确认的信源
+            if source_id in confirmed_sources:
+                continue
+
             days_tracked = r["days_tracked"]
             total_fetched = r["total_fetched"]
             avg_yield = r["avg_yield"] or 0.0
 
+            # 获取信源类型配置
+            source_type = source_type_map.get(source_id, SourceType.GENERAL)
+            type_config = SOURCE_TYPE_CONFIG.get(source_type, SOURCE_TYPE_CONFIG[SourceType.GENERAL])
+            min_yield_rate = type_config["min_yield_rate"]
+            observation_days_required = type_config["observation_days"]
+            auto_disable = type_config["auto_disable"]
+
+            # 计算观察期天数
+            first_date = datetime.fromisoformat(r["first_date"]) if r["first_date"] else None
+            last_date = datetime.fromisoformat(r["last_date"]) if r["last_date"] else None
+            observation_days = (last_date - first_date).days if first_date and last_date else 0
+
             # 门控条件：
-            # 1. 跟踪天数足够（至少 window_days - 1 天）
-            # 2. 总采集量足够（避免小样本）
-            # 3. 平均产出率低于阈值
-            if (days_tracked >= DEGRADATION_WINDOW_DAYS - 1
+            # 1. 观察期足够（根据信源类型）
+            # 2. 跟踪天数足够（至少 window_days - 1 天）
+            # 3. 总采集量足够（避免小样本）
+            # 4. 平均产出率低于阈值（根据信源类型）
+            # 5. 信源类型允许自动禁用
+            if (observation_days >= observation_days_required
+                    and days_tracked >= DEGRADATION_WINDOW_DAYS - 1
                     and total_fetched >= MIN_FETCH_COUNT * days_tracked
-                    and avg_yield < DEGRADATION_THRESHOLD):
+                    and avg_yield < min_yield_rate
+                    and auto_disable):
                 degraded.append({
                     "source_id": source_id,
+                    "source_type": source_type.value,
                     "days_tracked": days_tracked,
                     "total_fetched": total_fetched,
                     "total_selected": r["total_selected"] or 0,
                     "avg_yield": round(avg_yield, 4),
+                    "observation_days": observation_days,
+                    "min_yield_rate": min_yield_rate,
                 })
 
     if degraded:
@@ -188,6 +234,99 @@ def restore_source(domain: str, source_id: str) -> bool:
         logger.info(f"[{domain}] 恢复信源: {source_id}")
         return True
     return False
+
+
+def confirm_source_status(domain: str, source_id: str) -> bool:
+    """人工确认信源状态（标记为已确认，不会被自动禁用）。
+
+    在 sources.yaml 中添加 confirmed: true 标记。
+    """
+    yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
+    if not yaml_path.exists():
+        return False
+
+    content = yaml_path.read_text(encoding="utf-8")
+
+    # 查找信源块
+    source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
+    match = re.search(source_pattern, content)
+    if not match:
+        return False
+
+    block = match.group(0)
+
+    # 检查是否已有 confirmed 字段
+    if "confirmed:" in block:
+        # 已经有 confirmed 字段，更新为 true
+        new_block = re.sub(r'confirmed:\s*\w+', 'confirmed: true', block)
+    else:
+        # 在 id 行之后插入 confirmed: true
+        new_block = match.group(1) + f"    confirmed: true  # 人工确认于 {datetime.now().strftime('%Y-%m-%d')}\n" + match.group(2)
+
+    content = content.replace(block, new_block)
+    yaml_path.write_text(content, encoding="utf-8")
+    logger.info(f"[{domain}] 人工确认信源: {source_id}")
+    return True
+
+
+def manual_disable_source(domain: str, source_id: str) -> bool:
+    """手动禁用信源。"""
+    yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
+    if not yaml_path.exists():
+        return False
+
+    content = yaml_path.read_text(encoding="utf-8")
+
+    # 查找信源块
+    source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
+    match = re.search(source_pattern, content)
+    if not match:
+        return False
+
+    block = match.group(0)
+
+    # 检查是否已有 enabled 字段
+    if "enabled:" in block:
+        # 已经有 enabled 字段，更新为 false
+        new_block = re.sub(r'enabled:\s*\w+', 'enabled: false', block)
+    else:
+        # 在 id 行之后插入 enabled: false
+        new_block = match.group(1) + f"    enabled: false  # 手动禁用于 {datetime.now().strftime('%Y-%m-%d')}\n" + match.group(2)
+
+    content = content.replace(block, new_block)
+    yaml_path.write_text(content, encoding="utf-8")
+    logger.info(f"[{domain}] 手动禁用信源: {source_id}")
+    return True
+
+
+def manual_enable_source(domain: str, source_id: str) -> bool:
+    """手动启用信源。"""
+    yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
+    if not yaml_path.exists():
+        return False
+
+    content = yaml_path.read_text(encoding="utf-8")
+
+    # 查找信源块
+    source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
+    match = re.search(source_pattern, content)
+    if not match:
+        return False
+
+    block = match.group(0)
+
+    # 检查是否已有 enabled 字段
+    if "enabled:" in block:
+        # 已经有 enabled 字段，更新为 true
+        new_block = re.sub(r'enabled:\s*\w+', 'enabled: true', block)
+    else:
+        # 在 id 行之后插入 enabled: true
+        new_block = match.group(1) + f"    enabled: true  # 手动启用于 {datetime.now().strftime('%Y-%m-%d')}\n" + match.group(2)
+
+    content = content.replace(block, new_block)
+    yaml_path.write_text(content, encoding="utf-8")
+    logger.info(f"[{domain}] 手动启用信源: {source_id}")
+    return True
 
 
 def run_lifecycle_check(domain: str) -> dict:

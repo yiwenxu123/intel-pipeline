@@ -35,7 +35,7 @@ def stage_suggestions(domain: str, keywords: list[str]) -> dict:
         "domain": domain,
         "staged_at": datetime.now().isoformat(),
         "keywords": keywords,
-        "status": "pending",  # pending / accepted / rejected
+        "status": "pending",  # pending / accepted / rejected / manual_review
         "trial_results": None,
     }
     path.write_text(json.dumps(staging, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -71,10 +71,14 @@ def record_trial_result(domain: str, staged_pass_rate: float, official_pass_rate
         "improvement": round(staged_pass_rate - official_pass_rate, 4),
         "tested_at": datetime.now().isoformat(),
     }
-    # 自动决策
-    if staged_pass_rate > official_pass_rate:
+    # 自动决策：通过率提升超过 5% 则自动接受，否则需要人工确认
+    improvement = staged_pass_rate - official_pass_rate
+    if improvement > 0.05:
         staging["status"] = "accepted"
-        logger.info(f"[{domain}] 暂存关键词验证通过：通过率提升 {staged_pass_rate - official_pass_rate:.1%}")
+        logger.info(f"[{domain}] 暂存关键词验证通过：通过率提升 {improvement:.1%}")
+    elif improvement > 0:
+        staging["status"] = "manual_review"
+        logger.info(f"[{domain}] 暂存关键词需要人工确认：通过率提升 {improvement:.1%}")
     else:
         staging["status"] = "rejected"
         logger.info(f"[{domain}] 暂存关键词验证未通过：通过率无提升")

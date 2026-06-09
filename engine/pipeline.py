@@ -60,12 +60,20 @@ def run_full_pipeline(domain: DomainConfig, notify: bool = True) -> PipelineResu
     try:
         with Store() as store:
             cutoff = (datetime.now(timezone.utc) - timedelta(days=settings.score_window_days)).isoformat()
+            # 优化筛选逻辑：
+            # 1. 优先筛选有 published 日期且在窗口内的条目
+            # 2. 对于没有 published 日期的条目，使用 fetched_at 替代
+            # 3. 对于日期明显错误的条目（如 2017 年），使用 fetched_at 替代
             rows = store.conn.execute(
                 """SELECT r.* FROM raw_items r
-                   WHERE r.published >= ?
+                   WHERE (
+                       (r.published >= ? AND r.published >= '2020-01-01')
+                       OR (r.published IS NULL AND r.fetched_at >= ?)
+                       OR (r.published < '2020-01-01' AND r.fetched_at >= ?)
+                   )
                    AND r.id NOT IN (SELECT raw_id FROM scored_items WHERE domain = ?)
-                   ORDER BY r.published DESC""",
-                (cutoff, domain.name),
+                   ORDER BY COALESCE(r.published, r.fetched_at) DESC""",
+                (cutoff, cutoff, cutoff, domain.name),
             ).fetchall()
 
             if rows:

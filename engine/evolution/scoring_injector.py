@@ -80,6 +80,28 @@ def analyze_and_calibrate(domain: str, days: int = 7) -> dict:
                 "instruction": f"整体精选率 {select_rate:.0f}%（过低）。请检查是否过度严格：有明确事实的行业动态可以给到6分。",
             })
 
+    # 检查信源异常
+    for src in data.get("by_source", []):
+        if src["total"] < MIN_ITEMS_FOR_CALIBRATION:
+            continue
+        src_id = src["source_id"]
+        avg = src["avg_score"]
+
+        if avg > HIGH_SCORE_THRESHOLD:
+            calibrations.append({
+                "type": "source_high",
+                "target": src_id,
+                "avg_score": avg,
+                "instruction": f"信源 '{src_id}' 近期平均分 {avg:.1f}（偏高）。请严格评分：7分以上必须有具体数据支撑。",
+            })
+        elif avg < LOW_SCORE_THRESHOLD:
+            calibrations.append({
+                "type": "source_low",
+                "target": src_id,
+                "avg_score": avg,
+                "instruction": f"信源 '{src_id}' 近期平均分 {avg:.1f}（偏低）。请检查是否过度严格。",
+            })
+
     result = {
         "domain": domain,
         "analyzed_at": datetime.now().isoformat(),
