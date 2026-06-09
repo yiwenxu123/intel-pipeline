@@ -473,6 +473,37 @@ sources:
     keywords_filter: false
     tags: [养老, 国际, 公益]
 
+  # -- 新增国际养老组织信源 --
+  - id: globalageing
+    name: Global Ageing Network
+    kind: rss
+    url: https://globalageing.org/feed/
+    tier: T1
+    type: overseas
+    lang: en
+    keywords_filter: false
+    tags: [老龄化, 国际, 组织]
+
+  - id: ifa_ageing
+    name: International Federation on Ageing
+    kind: rss
+    url: https://ifa.ngo/feed/
+    tier: T1
+    type: overseas
+    lang: en
+    keywords_filter: false
+    tags: [老龄化, 国际, 组织]
+
+  - id: alzint
+    name: Alzheimer Disease International
+    kind: rss
+    url: https://www.alzint.org/feed/
+    tier: T1.5
+    type: overseas
+    lang: en
+    keywords_filter: false
+    tags: [认知症, 国际, 研究]
+
   # ━━━ T1.5 热榜 + 关键词过滤 ━━━
 
   - id: baidu_hot
