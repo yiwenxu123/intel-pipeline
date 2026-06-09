@@ -110,6 +110,7 @@ def notify_report(domain_name: str, stats: dict, top_items: list[dict]) -> bool:
 
     from engine.config import settings as s
     host = f"http://{s.api_host}:{s.api_port}" if s.api_host != "0.0.0.0" else f"http://localhost:{s.api_port}"
-    lines.append(f"[查看完整报告 → {host}]({host})")
+    link = f"{host}/?domain={domain_name}&date={date}"
+    lines.append(f"[查看今日情报 →]({link})")
 
     return send_webhook(webhook_url, title, "\n".join(lines))
