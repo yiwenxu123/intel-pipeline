@@ -32,11 +32,12 @@ class PipelineResult:
         self.duration_seconds: float = 0.0
 
 
-def run_full_pipeline(domain: DomainConfig, notify: bool = True) -> PipelineResult:
+def run_full_pipeline(domain: DomainConfig, notify: bool = True, max_items: int = 50) -> PipelineResult:
     """执行完整管道：采集 → 筛选 → 日报 → 推送。
 
     Args:
         notify: 是否在完成后推送飞书通知（默认 True）。
+        max_items: 每次筛选的最大条目数（默认 50）。
     """
     result = PipelineResult()
     start = time.time()
@@ -72,8 +73,9 @@ def run_full_pipeline(domain: DomainConfig, notify: bool = True) -> PipelineResu
                        OR (r.published < '2020-01-01' AND r.fetched_at >= ?)
                    )
                    AND r.id NOT IN (SELECT raw_id FROM scored_items WHERE domain = ?)
-                   ORDER BY COALESCE(r.published, r.fetched_at) DESC""",
-                (cutoff, cutoff, cutoff, domain.name),
+                   ORDER BY COALESCE(r.published, r.fetched_at) DESC
+                   LIMIT ?""",
+                (cutoff, cutoff, cutoff, domain.name, max_items),
             ).fetchall()
 
             if rows:

@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def run_pipeline_job(domain: str, notify: bool = True):
+def run_pipeline_job(domain: str, notify: bool = True, max_items: int = 50):
     """定时任务：调用公共管道函数。"""
     from engine.domain import load_domain
     from engine.pipeline import run_full_pipeline
@@ -25,7 +25,7 @@ def run_pipeline_job(domain: str, notify: bool = True):
     try:
         domain_config = load_domain(domain)
         logger.info(f"[{domain_config.name}] 定时管道触发")
-        result = run_full_pipeline(domain_config, notify=notify)
+        result = run_full_pipeline(domain_config, notify=notify, max_items=max_items)
 
         if result.error:
             logger.error(f"[{domain_config.name}] 管道执行失败: {result.error}")
