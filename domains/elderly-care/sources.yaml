@@ -368,6 +368,10 @@ sources:
     type: policy
     lang: ja
     keywords_filter: false
+    selectors:
+      article: "ul.m-listNews li"
+      title: "a"
+      date: "time.m-listNews__date"
     tags: [政策, 养老, 日本]
 
   # -- 新增海外信源：美国 --
