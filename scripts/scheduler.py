@@ -44,34 +44,26 @@ def start_scheduler():
     """启动调度器。"""
     scheduler = BlockingScheduler()
 
-    # 获取所有领域
-    domains_dir = settings.project_root / "domains"
-    domains = [d.name for d in domains_dir.iterdir() if d.is_dir()]
-
-    logger.info(f"发现 {len(domains)} 个领域: {domains}")
-
-    # 为每个领域配置定时任务
-    for domain in domains:
-        # 早间：采集 + 推送
-        scheduler.add_job(
-            run_pipeline_job,
-            CronTrigger(hour=8, minute=0),
-            id=f"{domain}_morning",
-            name=f"{domain} 早间情报采集",
-            kwargs={"domain": domain, "notify": True},
-        )
-        # 午间：只采集，不推送
-        scheduler.add_job(
-            run_pipeline_job,
-            CronTrigger(hour=14, minute=0),
-            id=f"{domain}_afternoon",
-            name=f"{domain} 午间情报采集",
-            kwargs={"domain": domain, "notify": False},
-        )
-        logger.info(f"  - {domain}: 早间 8:00（采集+推送）, 午间 14:00（仅采集）")
+    # 配置 elderly-care 领域的定时任务
+    # 早间：采集 + 推送
+    scheduler.add_job(
+        run_pipeline_job,
+        CronTrigger(hour=8, minute=0),
+        id="elderly-care_morning",
+        name="elderly-care 早间情报采集",
+        kwargs={"domain": "elderly-care", "notify": True},
+    )
+    # 晚间：只采集，不推送
+    scheduler.add_job(
+        run_pipeline_job,
+        CronTrigger(hour=20, minute=0),
+        id="elderly-care_evening",
+        name="elderly-care 晚间情报采集",
+        kwargs={"domain": "elderly-care", "notify": False},
+    )
 
     logger.info("调度器已启动")
-    logger.info(f"当前领域：{settings.domain}")
+    logger.info("elderly-care: 早间 8:00（采集+推送）, 晚间 20:00（仅采集）")
 
     try:
         scheduler.start()
