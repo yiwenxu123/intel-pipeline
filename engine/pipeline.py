@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from engine.config import settings
 from engine.domain import DomainConfig
 from engine.fetcher.runner import fetch_all
-from engine.filter.pipeline import pre_filter, score_items
+from engine.filter.pipeline import pre_filter, pre_filter_with_rules, score_items
 from engine.models import RawItem, ScoredItem, FetchResult, FilterResult
 from engine.store import Store
 
@@ -84,6 +84,8 @@ def run_full_pipeline(domain: DomainConfig, notify: bool = True, max_items: int 
                             content=r["content"] or "", lang=r["lang"] or "zh")
                     for r in rows
                 ]
+                # 前置过滤：基于规则排除低质量、无关的信息
+                items = pre_filter_with_rules(items, domain)
                 filtered = pre_filter(items, domain)
                 scored = score_items(filtered, domain)
                 for si in scored:

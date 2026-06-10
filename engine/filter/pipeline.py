@@ -1,9 +1,10 @@
-"""两轮筛选流水线：预筛 → 评分。"""
+"""两轮筛选流水线：前置过滤 → 预筛 → 评分。"""
 
 from __future__ import annotations
 
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from engine.config import settings
@@ -12,6 +13,67 @@ from engine.filter.llm_client import chat
 from engine.models import RawItem, ScoredItem, FilterResult
 
 logger = logging.getLogger(__name__)
+
+# 前置过滤规则
+EXCLUDE_KEYWORDS = [
+    "拼音", "解释", "字典", "笔顺", "部首", "读音", "意思", "组词",
+    "康熙字典", "新华字典", "汉语国学", "汉辞宝", "汉典",
+    "百度百科", "维基百科", "wikipedia",
+    "字怎么写", "怎么读", "什么意思",
+]
+
+EXCLUDE_URL_PATTERNS = [
+    "baike.baidu.com",
+    "zdic.net",
+    "汉语国学",
+    "汉辞宝",
+    "汉典",
+    "教育部",
+    "國語辭典",
+]
+
+MIN_CONTENT_LENGTH = 50  # 最小内容长度
+MAX_AGE_DAYS = 30  # 最大年龄（天）
+
+
+def pre_filter_with_rules(items: list[RawItem], domain: DomainConfig) -> list[RawItem]:
+    """前置过滤：基于规则排除低质量、无关的信息。
+
+    规则：
+    1. 内容长度过滤：排除内容过短的条目（少于 50 字）
+    2. 关键词过滤：排除包含特定关键词的条目
+    3. URL 模式过滤：排除特定 URL 模式的条目
+    4. 日期过滤：排除日期过旧的条目
+    """
+    if not items:
+        return []
+
+    filtered = []
+    for item in items:
+        # 1. 内容长度过滤
+        if len(item.content) < MIN_CONTENT_LENGTH:
+            continue
+
+        # 2. 关键词过滤
+        title_lower = item.title.lower()
+        content_lower = item.content.lower()
+        if any(kw in title_lower or kw in content_lower for kw in EXCLUDE_KEYWORDS):
+            continue
+
+        # 3. URL 模式过滤
+        if any(pattern in item.url for pattern in EXCLUDE_URL_PATTERNS):
+            continue
+
+        # 4. 日期过滤
+        if item.published:
+            age_days = (datetime.now(timezone.utc) - item.published).days
+            if age_days > MAX_AGE_DAYS:
+                continue
+
+        filtered.append(item)
+
+    logger.info(f"前置过滤：{len(items)} → {len(filtered)} 条")
+    return filtered
 
 
 def pre_filter(items: list[RawItem], domain: DomainConfig, batch_size: int = 20) -> list[RawItem]:
