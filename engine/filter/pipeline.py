@@ -233,7 +233,22 @@ def _parse_json_array(text: str) -> list[dict]:
     except json.JSONDecodeError:
         pass
 
-    # 4. 尝试提取第一个 [ ... ] 块
+    # 4. 尝试修复不完整的 JSON
+    # 如果 JSON 被截断，尝试补全
+    if json_str.startswith('[') and not json_str.endswith(']'):
+        # 尝试补全最后一个对象
+        last_brace = json_str.rfind('}')
+        if last_brace > 0:
+            json_str = json_str[:last_brace + 1] + ']'
+            try:
+                result = json.loads(json_str)
+                if isinstance(result, list):
+                    return result
+                return [result]
+            except json.JSONDecodeError:
+                pass
+
+    # 5. 尝试提取第一个 [ ... ] 块
     match = re.search(r'\[\s*\{.*?\}\s*\]', json_str, re.DOTALL)
     if match:
         try:
@@ -246,7 +261,7 @@ def _parse_json_array(text: str) -> list[dict]:
             except json.JSONDecodeError:
                 pass
 
-    # 5. 全部失败 — 记录原始响应供调试
+    # 6. 全部失败 — 记录原始响应供调试
     logger.warning(f"JSON 解析失败，响应长度 {len(text)} 字符，前300字: {text[:300]}")
     # 保存完整响应用于离线调试
     try:
