@@ -591,6 +591,23 @@ sources:
         - シニア ビジネス
     tags: [介护, 日本, 搜索]
 
+  - id: searxng_gov_policy
+    name: SearXNG 养老政策搜索
+    kind: searxng
+    url: http://10.207.251.137:8080
+    tier: T1.5
+    type: policy
+    lang: zh
+    keywords_filter: false
+    selectors:
+      search_queries:
+        - 民政部 养老服务
+        - 养老政策 最新
+        - 长护险 政策
+        - 养老补贴 政策
+        - 养老机构 管理
+    tags: [政策, 养老, 搜索]
+
   # ━━━ T2 参考源 ━━━
 
   - id: zhihuiyanglao
