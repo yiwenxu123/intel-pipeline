@@ -196,6 +196,30 @@ POST /api/sources/{id}/confirm|disable|enable
   tags: [标签]
 ```
 
+## 开发工作流
+
+**核心原则：Mac 是开发机，Windows 是部署机，GitHub 是同步中枢。**
+
+```
+Mac 修改 → git push → GitHub → git pull → Windows
+```
+
+- 所有代码修改在 Mac 上进行
+- 改完后 `git add -A && git commit && git push`
+- Windows 上只执行 `git pull` 拉取最新代码
+- **不要在 Windows 上直接改代码**（除非临时调试，调试完后同步回 GitHub）
+
+```bash
+# Mac 上修改并推送
+cd /Users/yiwenxu123/Projects/intel-pipeline
+git add -A && git commit -m "feat: xxx" && git push
+
+# Windows 上拉取
+ssh yihong123@10.207.251.86
+cd C:\Users\yihong123\Projects\intel-pipeline
+git pull
+```
+
 ## 常见任务
 
 **测试单个信源采集：**
