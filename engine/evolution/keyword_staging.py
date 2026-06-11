@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Optional
 
 from engine.config import settings
-from engine.store import Store
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +37,7 @@ def stage_suggestions(domain: str, keywords: list[str]) -> dict:
         "status": "pending",  # pending / accepted / rejected / manual_review
         "trial_results": None,
     }
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(staging, ensure_ascii=False, indent=2), encoding="utf-8")
     logger.info(f"[{domain}] {len(keywords)} 个关键词已暂存: {path}")
     return staging
@@ -82,6 +82,7 @@ def record_trial_result(domain: str, staged_pass_rate: float, official_pass_rate
     else:
         staging["status"] = "rejected"
         logger.info(f"[{domain}] 暂存关键词验证未通过：通过率无提升")
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(staging, ensure_ascii=False, indent=2), encoding="utf-8")
 
 

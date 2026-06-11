@@ -13,7 +13,6 @@ import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from engine.config import settings
 from engine.store import Store
@@ -102,17 +101,46 @@ def analyze_and_calibrate(domain: str, days: int = 7) -> dict:
                 "instruction": f"信源 '{src_id}' 近期平均分 {avg:.1f}（偏低）。请检查是否过度严格。",
             })
 
+    fb_stats: dict | None = None
+    try:
+        with Store() as s:
+            fb_stats = s.get_feedback_stats(domain, days)
+        if fb_stats and fb_stats["total"] >= 3:
+            feedback_note = {
+                "type": "feedback",
+                "target": "all",
+                "feedback_count": fb_stats["total"],
+                "avg_delta": fb_stats["avg_delta"],
+                "instruction": "",
+            }
+            if fb_stats["avg_delta"] > 1.0:
+                feedback_note["instruction"] = (
+                    f"近期收到 {fb_stats['total']} 条人工评分修正（平均上调 {fb_stats['avg_delta']:.1f} 分），"
+                    "说明评分可能过严，请适当放宽标准。"
+                )
+            elif fb_stats["avg_delta"] < -1.0:
+                feedback_note["instruction"] = (
+                    f"近期收到 {fb_stats['total']} 条人工评分修正（平均下调 {abs(fb_stats['avg_delta']):.1f} 分），"
+                    "说明评分可能过松，请提高标准。"
+                )
+            if feedback_note["instruction"]:
+                calibrations.append(feedback_note)
+    except Exception:
+        pass
+
     result = {
         "domain": domain,
         "analyzed_at": datetime.now().isoformat(),
         "days": days,
         "calibrations": calibrations,
         "overall": overall,
+        "feedback": fb_stats,
     }
 
     # 保存校准指令
     if calibrations:
         path = _calibration_path(domain)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         logger.info(f"[{domain}] 生成 {len(calibrations)} 条评分校准指令")
     else:

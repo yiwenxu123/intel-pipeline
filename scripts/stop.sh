@@ -52,6 +52,17 @@ for port in 8900 8901; do
   fi
 done
 
+# 停止 LaunchAgent（若已安装）
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  UID_NUM=$(id -u)
+  for label in com.intel-pipeline.scheduler com.intel-pipeline.api.elderly-care com.intel-pipeline.api.china-africa; do
+    if launchctl print "gui/${UID_NUM}/${label}" >/dev/null 2>&1; then
+      launchctl bootout "gui/${UID_NUM}/${label}" 2>/dev/null && \
+        echo -e "  ${GREEN}✅ launchd/$label — 已停止${NC}" && stopped=$((stopped + 1))
+    fi
+  done
+fi
+
 if [ "$stopped" -eq 0 ]; then
   echo -e "${YELLOW}没有运行中的服务${NC}"
 else

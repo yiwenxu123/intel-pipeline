@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -16,6 +17,19 @@ logger = logging.getLogger(__name__)
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 }
+_WX_URL_RE = re.compile(r'https?://mp\.weixin\.qq\.com/[^\s"<>' + "'" + r']+')
+
+
+def _resolve_rsshub_url(url: str) -> str | None:
+    """从 RSSHub 代理页面提取原始微信文章链接。"""
+    try:
+        resp = httpx.get(url, headers=HEADERS, timeout=10, follow_redirects=True)
+        if resp.status_code != 200:
+            return None
+        m = _WX_URL_RE.search(resp.text)
+        return m.group(0) if m else None
+    except Exception:
+        return None
 
 
 def _parse_date(entry) -> Optional[datetime]:
@@ -47,6 +61,17 @@ def fetch_rss(source: SourceDef) -> list[RawItem]:
         link = entry.get("link", "").strip()
         if not title or not link:
             continue
+
+        # 修复协议相对 URL（如 //views/article/...）和缺少协议的链接
+        from urllib.parse import urljoin
+        if link.startswith("//") or link.startswith("/"):
+            link = urljoin(source.url, link)
+
+        # RSSHub 代理链接 → 提取原始微信 URL
+        if "/views/article/" in link:
+            original = _resolve_rsshub_url(link)
+            if original:
+                link = original
 
         # 提取摘要/内容
         content = ""

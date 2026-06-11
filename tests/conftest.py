@@ -53,4 +53,5 @@ def domain_dir(tmp_path):
     )
     (d / "scoring.md").write_text("评分 prompt", encoding="utf-8")
     (d / "pre_filter.md").write_text("预筛 prompt", encoding="utf-8")
+    (d / "briefing.md").write_text("简报 prompt", encoding="utf-8")
     return d

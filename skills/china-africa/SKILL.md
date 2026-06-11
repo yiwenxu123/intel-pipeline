@@ -1,6 +1,6 @@
 ---
 name: china-africa-intel
-description: 中非经贸情报查询 Skill。当用户想知道中非经贸动态、投资合作、政策法规、贸易数据、风险预警等情报时使用。支持分类筛选、时间范围控制、关键词搜索。数据来自 intel-pipeline 引擎，实时从 20+ 信源采集、LLM 筛选。
+description: 中非经贸情报查询 Skill。当用户想知道中非经贸动态、投资合作、政策法规、贸易数据、风险预警等情报时使用。支持分类筛选、时间范围控制、关键词搜索。数据来自 intel-pipeline 引擎。
 ---
 
 # 中非经贸情报 Skill
@@ -17,83 +17,67 @@ description: 中非经贸情报查询 Skill。当用户想知道中非经贸动�
 | "帮我查一下安哥拉的投资信息" | ✅ 触发（关键词匹配） |
 | "最近一周的中非经贸情报" | ✅ 触发（时间范围） |
 
-## 先决条件
-
-调 API 时需要带浏览器 User-Agent，否则可能被 403 拒绝：
-
-```bash
-UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 intel-skill/0.1.0"
-```
-
 ## 端点
 
-Base URL: `https://intel-pipeline.local`（用户自部署）
+Base URL: `http://localhost:8900`（`scripts/start.sh` 默认端口；自部署请替换）
+
+**所有请求必须带 `domain=china-africa`。**
 
 ### 精选情报
 
 ```
-GET /api/items?mode=selected&days=<N>&take=<N>&q=<关键词>
+GET /api/items?domain=china-africa&mode=selected&days=<N>&take=<N>&q=<关键词>
 ```
 
-- `days`: 1 / 3 / 7 / 30（默认 3，留空=3）
+- `domain`: china-africa（必填）
+- `days`: 1 / 3 / 7 / 30
 - `take`: 最多 200（默认 50）
-- `q`: 关键词搜索（可选）
-- `category`: 分类过滤（可选）
+- `category`: policy / trade / investment / finance / tech_transfer / diplomacy / risk / case_study
 
 ### 全部情报
 
 ```
-GET /api/items?mode=all&days=<N>&take=<N>
+GET /api/items?domain=china-africa&mode=all&days=<N>&take=<N>
 ```
 
 ### 日报
 
 ```
-GET /api/report/{YYYY-MM-DD}
+GET /api/report/{YYYY-MM-DD}?domain=china-africa
+```
+
+### 统计与健康
+
+```
+GET /api/stats?domain=china-africa
+GET /api/health?domain=china-africa
+GET /api/trends?domain=china-africa&days=30
 ```
 
 ### RSS 订阅
 
-- `/rss/curated` — 精选情报
-- `/rss/all` — 全部情报
-- `/rss/daily` — 今日日报
+- `/rss/curated?domain=china-africa` — 精选情报
+- `/rss/all?domain=china-africa` — 全部情报
+- `/rss/daily?domain=china-africa` — 今日日报
 
 ## 工作流
 
-### 默认路径：拉精选（宽问题首选）
+### 默认路径：拉精选
 
 ```bash
-curl -sH "User-Agent: $UA" "https://intel-pipeline.local/api/items?mode=selected&days=3&take=20"
-```
-
-### 带时间范围
-
-```bash
-# 最近 24 小时
-curl -sH "User-Agent: $UA" "https://intel-pipeline.local/api/items?mode=selected&days=1"
-
-# 最近 7 天
-curl -sH "User-Agent: $UA" "https://intel-pipeline.local/api/items?mode=selected&days=7"
+curl -s "http://localhost:8900/api/items?domain=china-africa&mode=selected&days=3&take=20"
 ```
 
 ### 按分类
 
 ```bash
-# 分类选项: policy / trade / investment / finance / tech_transfer / diplomacy / risk / case_study
-curl -sH "User-Agent: $UA" "https://intel-pipeline.local/api/items?mode=selected&category=investment&days=7"
+curl -s "http://localhost:8900/api/items?domain=china-africa&mode=selected&category=investment&days=7"
 ```
 
 ### 关键词搜索
 
 ```bash
-curl -sH "User-Agent: $UA" "https://intel-pipeline.local/api/items?mode=selected&q=南非&days=7"
-```
-
-### 拉日报
-
-```bash
-# 最新日报
-curl -sH "User-Agent: $UA" "https://intel-pipeline.local/api/report/$(date +%Y-%m-%d)"
+curl -s "http://localhost:8900/api/items?domain=china-africa&mode=selected&q=南非&days=7"
 ```
 
 ## 分类说明
@@ -112,6 +96,6 @@ curl -sH "User-Agent: $UA" "https://intel-pipeline.local/api/report/$(date +%Y-%
 ## 注意事项
 
 - API 匿名免费，无需 token
-- 限流 600 req/min/IP
 - 摘要是 LLM 生成的，引用前请回原文核对
-- 默认走精选（mode=selected），只有用户明确说"全部"时才走 mode=all
+- 默认走精选（mode=selected），只有用户明确说「全部」时才走 mode=all
+- Dashboard：`http://localhost:8900/?domain=china-africa`

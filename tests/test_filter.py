@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from engine.filter.pipeline import _parse_json_array
+from engine.filter.pipeline import _parse_json_array, _parse_prefilter_response
 
 
 # ── _parse_json_array 基础解析 ──
@@ -87,3 +87,19 @@ def test_parse_nested_json_in_text():
     result = _parse_json_array(text)
     assert len(result) == 1
     assert result[0]["score"] == 6
+
+
+# ── 预筛解析 ──
+
+def test_parse_prefilter_response():
+    text = "1 | Y | 中非贸易\n2 | N | 无关\n3 | y | 保留"
+    decisions = _parse_prefilter_response(text, 3)
+    assert decisions[1] is True
+    assert decisions[2] is False
+    assert decisions[3] is True
+
+
+def test_parse_prefilter_defaults_keep():
+    decisions = _parse_prefilter_response("", 2)
+    assert decisions[1] is True
+    assert decisions[2] is True

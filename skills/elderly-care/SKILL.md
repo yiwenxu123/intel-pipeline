@@ -19,7 +19,7 @@ description: 养老/大健康情报查询 Skill。当用户想知道养老政策
 
 ## 端点
 
-Base URL: `https://intel-pipeline.local`（用户自部署）
+Base URL: `http://localhost:8901`（`scripts/start.sh` 默认端口；自部署请替换）
 
 ### 精选情报
 
@@ -50,30 +50,30 @@ GET /api/report/{YYYY-MM-DD}?domain=elderly-care
 ### 默认路径：拉精选
 
 ```bash
-curl -s "https://intel-pipeline.local/api/items?domain=elderly-care&mode=selected&days=3&take=20"
+curl -s "http://localhost:8901/api/items?domain=elderly-care&mode=selected&days=3&take=20"
 ```
 
 ### 带时间范围
 
 ```bash
 # 最近 24 小时
-curl -s "https://intel-pipeline.local/api/items?domain=elderly-care&mode=selected&days=1"
+curl -s "http://localhost:8901/api/items?domain=elderly-care&mode=selected&days=1"
 
 # 最近 7 天
-curl -s "https://intel-pipeline.local/api/items?domain=elderly-care&mode=selected&days=7"
+curl -s "http://localhost:8901/api/items?domain=elderly-care&mode=selected&days=7"
 ```
 
 ### 按分类
 
 ```bash
 # 分类：policy / industry / health_services / elderly_tech / finance_security / lifestyle / risk
-curl -s "https://intel-pipeline.local/api/items?domain=elderly-care&mode=selected&category=policy&days=7"
+curl -s "http://localhost:8901/api/items?domain=elderly-care&mode=selected&category=policy&days=7"
 ```
 
 ### 关键词搜索
 
 ```bash
-curl -s "https://intel-pipeline.local/api/items?domain=elderly-care&mode=selected&q=长期护理保险&days=7"
+curl -s "http://localhost:8901/api/items?domain=elderly-care&mode=selected&q=长期护理保险&days=7"
 ```
 
 ## 分类说明

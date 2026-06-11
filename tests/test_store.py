@@ -138,6 +138,41 @@ def test_get_stats(store):
     assert stats["selected"] >= 1
 
 
+def test_get_stats_extended_fields(store):
+    raw = _make_raw()
+    rid = store.save_raw(raw)
+    store.save_scored(rid, "test-domain", _make_scored(raw, score=7.0))
+    store.save_pipe_run("test-domain", duration_seconds=12.5, fetch_new=3, fetch_errors=1,
+                        fetch_error_sources=["bad_src"], scored=1)
+
+    stats = store.get_stats("test-domain")
+    assert stats["last_fetch_time"] is not None
+    assert stats["unscored_count"] >= 0
+    assert stats["db_size_mb"] >= 0
+    assert stats["last_pipe_duration"] == 12.5
+    assert stats["last_fetch_errors"] == 1
+
+
+def test_get_selected_includes_full_text(store):
+    raw = _make_raw()
+    rid = store.save_raw(raw)
+    store.update_full_text(raw.url, "这是完整正文内容，超过两百字。" * 10)
+    store.save_scored(rid, "test-domain", _make_scored(raw, score=8.0))
+
+    results = store.get_selected("test-domain", min_score=6.0)
+    assert len(results) == 1
+    assert "完整正文" in results[0]["full_text"]
+
+
+def test_save_pipe_run(store):
+    run_id = store.save_pipe_run("test-domain", duration_seconds=5.0, fetch_new=10, scored=2)
+    assert run_id > 0
+    last = store.get_last_pipe_run("test-domain")
+    assert last is not None
+    assert last["duration_seconds"] == 5.0
+    assert last["fetch_new"] == 10
+
+
 # ── 上下文管理器 ──
 
 def test_context_manager(tmp_path):

@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 from engine.config import settings
 from engine.models import SourceType, SOURCE_TYPE_CONFIG
@@ -30,7 +28,7 @@ def analyze_source_quality(domain: str, days: int = 7) -> dict:
     根据信源类型使用不同的评估标准。
     """
     s = Store()
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
     # 加载领域配置，获取信源类型
     from engine.domain import load_domain

@@ -1,160 +1,224 @@
-"""两轮筛选流水线：前置过滤 → 预筛 → 评分。"""
+"""单轮评分流水线（无预筛）：直接对条目批量评分。"""
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from engine.config import settings
 from engine.domain import DomainConfig
+from engine.filter.enrichment import scoring_input_text
 from engine.filter.llm_client import chat
+from engine.filter.quality_gates import normalize_content_type
 from engine.models import RawItem, ScoredItem, FilterResult
+
+# 并行评分最大线程数
+SCORE_MAX_PARALLEL = 3
 
 logger = logging.getLogger(__name__)
 
-# 前置过滤规则
-EXCLUDE_KEYWORDS = [
-    "拼音", "解释", "字典", "笔顺", "部首", "读音", "意思", "组词",
-    "康熙字典", "新华字典", "汉语国学", "汉辞宝", "汉典",
-    "百度百科", "维基百科", "wikipedia",
-    "字怎么写", "怎么读", "什么意思",
-]
-
-EXCLUDE_URL_PATTERNS = [
-    "baike.baidu.com",
-    "zdic.net",
-    "汉语国学",
-    "汉辞宝",
-    "汉典",
-    "教育部",
-    "國語辭典",
-]
-
-MIN_CONTENT_LENGTH = 50  # 最小内容长度
-MAX_AGE_DAYS = 30  # 最大年龄（天）
+# 评分过程统计（每次 score_items 前 reset）
+_score_stats: dict[str, int] = {
+    "json_parse_failures": 0,
+    "retry_success": 0,
+    "batch_retries": 0,
+}
 
 
-def pre_filter_with_rules(items: list[RawItem], domain: DomainConfig) -> list[RawItem]:
-    """前置过滤：基于规则排除低质量、无关的信息。
+def reset_score_stats() -> None:
+    global _score_stats
+    _score_stats = {"json_parse_failures": 0, "retry_success": 0, "batch_retries": 0}
 
-    规则：
-    1. 内容长度过滤：排除内容过短的条目（少于 50 字）
-    2. 关键词过滤：排除包含特定关键词的条目
-    3. URL 模式过滤：排除特定 URL 模式的条目
-    4. 日期过滤：排除日期过旧的条目
-    """
+
+def get_score_stats() -> dict[str, int]:
+    return dict(_score_stats)
+
+
+def pre_filter_items(
+    items: list[RawItem],
+    domain: DomainConfig,
+    batch_size: int = 20,
+) -> tuple[list[RawItem], int]:
+    """低成本预筛：用 pre_filter 模型去掉明显无关条目。"""
     if not items:
-        return []
-
-    filtered = []
-    for item in items:
-        # 1. 内容长度过滤
-        if len(item.content) < MIN_CONTENT_LENGTH:
-            continue
-
-        # 2. 关键词过滤
-        title_lower = item.title.lower()
-        content_lower = item.content.lower()
-        if any(kw in title_lower or kw in content_lower for kw in EXCLUDE_KEYWORDS):
-            continue
-
-        # 3. URL 模式过滤
-        if any(pattern in item.url for pattern in EXCLUDE_URL_PATTERNS):
-            continue
-
-        # 4. 日期过滤
-        if item.published:
-            age_days = (datetime.now(timezone.utc) - item.published).days
-            if age_days > MAX_AGE_DAYS:
-                continue
-
-        filtered.append(item)
-
-    logger.info(f"前置过滤：{len(items)} → {len(filtered)} 条")
-    return filtered
-
-
-def pre_filter(items: list[RawItem], domain: DomainConfig, batch_size: int = 20) -> list[RawItem]:
-    """第一轮：低成本模型预筛，去掉无关内容。"""
-    if not items:
-        return []
+        return [], 0
 
     system = domain.pre_filter_prompt
-    kept: list[RawItem] = []
+    passed: list[RawItem] = []
+    skipped = 0
 
-    for i in range(0, len(items), batch_size):
-        batch = items[i : i + batch_size]
-        # 构建输入
-        input_lines = []
-        for idx, item in enumerate(batch):
-            input_lines.append(f"{idx+1}. [{item.source_id}] {item.title}\n   {item.content[:200]}")
-        user_msg = "\n".join(input_lines)
+    for batch_start in range(0, len(items), batch_size):
+        batch = items[batch_start : batch_start + batch_size]
+        lines = []
+        for idx, item in enumerate(batch, 1):
+            content = (item.content or "")[:400]
+            lines.append(f"{idx}. 标题：{item.title}\n   内容：{content}\n   链接：{item.url}")
 
+        user_msg = (
+            f"请对以下 {len(batch)} 条信息做预筛（Y=保留，N=过滤）。\n"
+            "输出格式：序号 | Y/N | 简短理由\n\n" + "\n\n".join(lines)
+        )
         response = chat(
             model=settings.llm_pre_filter_model,
             system=system,
             user=user_msg,
             temperature=0.1,
         )
+        decisions = _parse_prefilter_response(response, len(batch))
+        for idx, item in enumerate(batch):
+            keep = decisions.get(idx + 1, True)
+            if keep:
+                passed.append(item)
+            else:
+                skipped += 1
 
-        # 解析结果（简化格式：序号|Y 或 序号|N）
-        parsed_indices = set()
-        for line in response.strip().split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            # 尝试解析简化格式：序号|Y 或 序号|N
-            if "|" in line:
-                parts = [p.strip() for p in line.split("|")]
-                if len(parts) >= 2:
-                    try:
-                        idx = int(parts[0]) - 1
-                        if parts[1].upper() == "Y" and 0 <= idx < len(batch):
-                            kept.append(batch[idx])
-                            parsed_indices.add(idx)
-                        elif parts[1].upper() == "N" and 0 <= idx < len(batch):
-                            parsed_indices.add(idx)
-                    except ValueError:
-                        continue
-
-        # 单条重试机制：对于未解析的条目，逐条重试（最多重试 5 条）
-        missing_indices = [j for j in range(len(batch)) if j not in parsed_indices]
-        if missing_indices:
-            retry_count = min(len(missing_indices), 5)
-            logger.info(f"预筛批次 {i//batch_size + 1}：{len(missing_indices)} 条未解析，重试 {retry_count} 条")
-            for mi in missing_indices[:retry_count]:
-                retry_item = batch[mi]
-                retry_msg = (
-                    f"请判断以下条目是否与养老/银发经济相关，输出 Y 或 N。\n\n"
-                    f"标题：{retry_item.title}\n"
-                    f"来源：{retry_item.source_id}\n"
-                    f"内容：{retry_item.content[:200]}"
-                )
-                retry_resp = chat(
-                    model=settings.llm_pre_filter_model,
-                    system=system,
-                    user=retry_msg,
-                    temperature=0.1,
-                )
-                # 解析重试结果
-                for line in retry_resp.strip().split("\n"):
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if line.upper().startswith("Y"):
-                        kept.append(retry_item)
-                        break
-
-    logger.info(f"预筛完成：{len(items)} → {len(kept)} 条")
-    return kept
+    logger.info(f"预筛完成：{len(passed)}/{len(items)} 条通过，过滤 {skipped} 条")
+    return passed, skipped
 
 
-def score_items(items: list[RawItem], domain: DomainConfig, batch_size: int = 5) -> list[ScoredItem]:
-    """第二轮：强模型批量评分（每次送 batch_size 条）。"""
+def _parse_prefilter_response(text: str, expected: int) -> dict[int, bool]:
+    """解析预筛响应：{序号: 是否保留}。"""
+    import re
+
+    decisions: dict[int, bool] = {}
+    for line in text.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        m = re.match(r"^(\d+)\s*\|\s*([YNyn])", line)
+        if m:
+            num = int(m.group(1))
+            decisions[num] = m.group(2).upper() == "Y"
+    # 未出现在响应中的条目默认保留，避免误杀
+    for i in range(1, expected + 1):
+        decisions.setdefault(i, True)
+    return decisions
+
+
+def _score_batch(
+    batch: list[RawItem], batch_offset: int, system: str, domain_name: str
+) -> list[ScoredItem]:
+    """处理单批评分，返回 ScoredItem 列表。供 ThreadPoolExecutor 调用。"""
+    # 构建批量输入
+    parts = []
+    for idx, item in enumerate(batch):
+        original_source = item.extra.get("original_source", item.source_id) if item.extra else item.source_id
+        body = scoring_input_text(item) or "(正文过短，请结合标题谨慎评分)"
+        parts.append(
+            f"条目 {idx+1}:\n"
+            f"  标题：{item.title}\n"
+            f"  来源：{item.source_id}（原始来源：{original_source}）\n"
+            f"  内容：{body}\n"
+            f"  链接：{item.url}"
+        )
+
+    total_in_batch = len(batch)
+    user_msg = (
+        f"请对以下 {total_in_batch} 条情报逐一评分并分类。\n"
+        "请输出一个 JSON 数组，每个元素包含 score/category/tags/title/summary/key_points/reason/content_type。\n\n"
+        + "\n\n".join(parts)
+    )
+
+    response = chat(
+        model=settings.llm_scoring_model,
+        system=system,
+        user=user_msg,
+        temperature=0.2,
+    )
+
+    results = _parse_json_array(response)
+    if not results:
+        _score_stats["json_parse_failures"] += total_in_batch
+
+    # 解析结果不足时，逐条重试
+    if 0 < len(results) < total_in_batch:
+        missing_indices = [j for j in range(total_in_batch) if j >= len(results)]
+        _score_stats["batch_retries"] += 1
+        logger.warning(
+            f"评分结果不足：收到 {len(results)}/{total_in_batch} 条，逐条重试 {len(missing_indices)} 条"
+        )
+        for mi in missing_indices:
+            retry_item = batch[mi]
+            retry_msg = (
+                "请对以下情报评分并分类，输出一个 JSON 对象，包含 score/category/tags/title/summary/key_points/reason/content_type。\n\n"
+                f"标题：{retry_item.title}\n"
+                f"来源：{retry_item.source_id}\n"
+                f"内容：{scoring_input_text(retry_item) or '(正文过短)'}\n"
+                f"链接：{retry_item.url}"
+            )
+            retry_resp = chat(
+                model=settings.llm_scoring_model, system=system, user=retry_msg, temperature=0.2
+            )
+            retry_results = _parse_json_array(retry_resp)
+            if retry_results:
+                _score_stats["retry_success"] += 1
+                results.append(retry_results[0])
+            else:
+                _score_stats["json_parse_failures"] += 1
+                results.append({})
+
+    scored: list[ScoredItem] = []
+    for j in range(total_in_batch):
+        item = batch[j]
+        if j < len(results):
+            r = results[j] or {}
+        else:
+            r = {}
+            logger.warning(f"评分结果缺失 [{item.title[:30]}]")
+
+        score_val = float(r.get("score", 5.0))
+        category_val = r.get("category", "uncategorized")
+        summary_val = r.get("summary", item.title)
+        reason_val = r.get("reason", "")
+        tags_val = r.get("tags", [])
+        title_val = r.get("title", "") or ""  # LLM 翻译后的中文标题
+        key_points_val = r.get("key_points", [])
+        key_points_val = (
+            key_points_val if isinstance(key_points_val, list) else []
+        )
+        entities_val = r.get("entities", [])
+        entities_val = entities_val if isinstance(entities_val, list) else []
+        content_type_val = normalize_content_type(r.get("content_type"))
+        source_display_val = item.extra.get("original_source", "") if item.extra else ""
+        if not source_display_val:
+            source_display_val = item.source_id
+
+        scored.append(
+            ScoredItem(
+                raw=item,
+                score=score_val,
+                category=category_val,
+                tags=tags_val,
+                summary=summary_val,
+                key_points=key_points_val,
+                reason=reason_val,
+                entities=entities_val,
+                source_display=source_display_val,
+                title_display=title_val,
+                content_type=content_type_val,
+            )
+        )
+
+    logger.info(f"评分批次完成：{len(scored)} 条")
+    return scored
+
+
+def score_items(
+    items: list[RawItem],
+    domain: DomainConfig,
+    batch_size: int = 15,
+    parallel: bool = True,
+) -> list[ScoredItem]:
+    """第二轮：强模型批量评分，支持并行处理。
+
+    Args:
+        parallel: 是否并行处理多个批次（默认 True）。设为 False 可降级为串行。
+    """
     if not items:
         return []
+
+    reset_score_stats()
 
     # 注入评分校准指令（如果有）
     try:
@@ -162,98 +226,48 @@ def score_items(items: list[RawItem], domain: DomainConfig, batch_size: int = 5)
         system = inject_calibration(domain.name, domain.scoring_prompt)
     except Exception:
         system = domain.scoring_prompt
-    scored: list[ScoredItem] = []
 
-    for i in range(0, len(items), batch_size):
-        batch = items[i : i + batch_size]
+    batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
 
-        # 构建批量输入
-        parts = []
-        for idx, item in enumerate(batch):
-            original_source = item.extra.get("original_source", item.source_id) if item.extra else item.source_id
-            parts.append(
-                f"条目 {idx+1}:\n"
-                f"  标题：{item.title}\n"
-                f"  来源：{item.source_id}（原始来源：{original_source}）\n"
-                f"  内容：{item.content[:600]}\n"
-                f"  链接：{item.url}"
-            )
-        user_msg = (
-            "请对以下 " + str(len(batch)) + " 条情报逐一评分并分类。\n"
-            "请输出一个 JSON 数组，每个元素包含 score/category/source_display/title_display/content_type/tags/summary/key_points/reason/entities。\n\n"
-            + "\n\n".join(parts)
-        )
+    if len(batches) <= 1 or not parallel:
+        # 只有一个批次或串行模式，直接处理
+        scored: list[ScoredItem] = []
+        for i, batch in enumerate(batches):
+            scored.extend(_score_batch(batch, i * batch_size, system, domain.name))
+        logger.info(f"评分完成：{len(scored)} 条")
+        return scored
 
-        response = chat(
-            model=settings.llm_scoring_model,
-            system=system,
-            user=user_msg,
-            temperature=0.2,
-        )
+    # 并行处理多个批次
+    scored: list[ScoredItem] = [None] * len(items)  # type: ignore
+    with concurrent.futures.ThreadPoolExecutor(max_workers=SCORE_MAX_PARALLEL) as executor:
+        futures: dict[concurrent.futures.Future, int] = {}
+        for i, batch in enumerate(batches):
+            future = executor.submit(_score_batch, batch, i * batch_size, system, domain.name)
+            futures[future] = i
 
-        # 解析 JSON 数组
-        results = _parse_json_array(response)
-
-        # 解析结果不足时，逐条重试缺失的条目
-        if 0 < len(results) < len(batch):
-            missing_indices = [j for j in range(len(batch)) if j >= len(results)]
-            logger.warning(f"评分结果不足：收到 {len(results)}/{len(batch)} 条，逐条重试 {len(missing_indices)} 条")
-            for mi in missing_indices:
-                retry_item = batch[mi]
-                retry_msg = (
-                    "请对以下情报评分并分类，输出一个 JSON 对象（不是数组）。\n\n"
-                    f"标题：{retry_item.title}\n"
-                    f"来源：{retry_item.source_id}\n"
-                    f"内容：{retry_item.content[:600]}\n"
-                    f"链接：{retry_item.url}"
-                )
-                retry_resp = chat(model=settings.llm_scoring_model, system=system, user=retry_msg, temperature=0.2)
-                retry_results = _parse_json_array(retry_resp)
-                if retry_results:
-                    results.append(retry_results[0])
-                else:
-                    results.append({})  # 空 dict 触发 fallback
-
-        for j, item in enumerate(batch):
-            if j < len(results):
-                r = results[j]
-                if not r:
-                    # 空结果（重试也失败），使用 fallback
-                    r = {"score": 5.0, "category": "uncategorized", "summary": item.title,
-                         "reason": "LLM 评分失败（重试），保留待人工审核"}
-                # 确定来源显示名：优先用 LLM 输出的 source_display，其次用原始来源，最后用 source_id
-                source_display = r.get("source_display", "") or item.extra.get("original_source", "") or item.source_id
-                # 确定标题：优先用 LLM 翻译的 title_display，其次用原标题
-                title_display = r.get("title_display", "") or item.title
-                scored.append(
-                    ScoredItem(
-                        raw=item,
-                        score=float(r.get("score", 5.0)),
-                        category=r.get("category", "uncategorized"),
-                        tags=r.get("tags", []),
-                        summary=r.get("summary", item.title),
-                        key_points=r.get("key_points", []),
-                        reason=r.get("reason", ""),
-                        entities=r.get("entities", []),
-                        source_display=source_display,
-                        title_display=title_display,
-                        content_type=r.get("content_type", "news"),
-                    )
-                )
-            else:
-                logger.warning(f"评分结果不足 [{item.title[:30]}]")
-                scored.append(
-                    ScoredItem(
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                batch_results = future.result()
+                batch_idx = futures[future]
+                start = batch_idx * batch_size
+                for j, si in enumerate(batch_results):
+                    scored[start + j] = si
+            except Exception as e:
+                logger.error(f"评分批次处理失败: {e}")
+                # 失败的批次用 fallback 填充
+                batch_idx = futures[future]
+                start = batch_idx * batch_size
+                batch = batches[batch_idx]
+                for j, item in enumerate(batch):
+                    scored[start + j] = ScoredItem(
                         raw=item,
                         score=5.0,
                         category="uncategorized",
                         summary=item.title,
-                        reason="评分结果缺失，保留待人工审核",
+                        reason=f"评分失败: {e}",
                     )
-                )
 
-        logger.info(f"评分进度：{min(i + batch_size, len(items))}/{len(items)}")
-
+    scored = [s for s in scored if s is not None]
     logger.info(f"评分完成：{len(scored)} 条")
     return scored
 
@@ -310,24 +324,57 @@ def _parse_json_array(text: str) -> list[dict]:
             except json.JSONDecodeError:
                 pass
 
-    # 5. 尝试提取第一个 [ ... ] 块
+    # 5. 基于括号匹配逐个提取 JSON 对象，适应未转义引号问题
+    def _extract_objects(s: str) -> list[str]:
+        """用括号计数提取顶层 JSON 对象。不跟踪字符串状态——假设值不含未转义的花括号。"""
+        objects = []
+        depth = 0
+        start = -1
+        for i, c in enumerate(s):
+            if c == '{':
+                if depth == 0:
+                    start = i
+                depth += 1
+            elif c == '}':
+                depth -= 1
+                if depth == 0 and start >= 0:
+                    objects.append(s[start:i+1])
+        return objects
+
+    # 如果 JSON 字符串以 [ 开头，尝试逐个提取对象
+    if json_str.strip().startswith('['):
+        objs = _extract_objects(json_str)
+        if objs:
+            results = []
+            for obj in objs:
+                # 尝试直接解析
+                try:
+                    results.append(json.loads(obj))
+                except json.JSONDecodeError:
+                    # 清理尾部逗号再试
+                    fixed = re.sub(r',\s*([}\]])', r'\1', obj)
+                    try:
+                        results.append(json.loads(fixed))
+                    except json.JSONDecodeError:
+                        pass
+            if results:
+                return results
+
+    # 6. 兜底：直接从文本中提取第一个 [...] 块
     match = re.search(r'\[\s*\{.*?\}\s*\]', json_str, re.DOTALL)
     if match:
         try:
-            return json.loads(match.group())
+            result = json.loads(match.group())
+            if isinstance(result, list):
+                return result
+            return [result]
         except json.JSONDecodeError:
-            # 清理尾部逗号再试
-            try:
-                fixed = re.sub(r',\s*([}\]])', r'\1', match.group())
-                return json.loads(fixed)
-            except json.JSONDecodeError:
-                pass
+            pass
 
-    # 6. 全部失败 — 记录原始响应供调试
+    # 7. 全部失败 — 记录原始响应供调试
     logger.warning(f"JSON 解析失败，响应长度 {len(text)} 字符，前300字: {text[:300]}")
     # 保存完整响应用于离线调试
     try:
-        from pathlib import Path
         err_dir = settings.project_root / "data" / "llm_errors"
         err_dir.mkdir(parents=True, exist_ok=True)
         from datetime import datetime
@@ -341,27 +388,22 @@ def _parse_json_array(text: str) -> list[dict]:
 
 
 def run_pipeline(items: list[RawItem], domain: DomainConfig) -> FilterResult:
-    """完整筛选流水线：预筛 → 评分，返回带统计的结果。"""
+    """单轮评分流水线（无预筛），返回带统计的结果。"""
     import time
     start = time.time()
     total_input = len(items)
 
-    filtered = pre_filter(items, domain)
-    pre_passed = len(filtered)
-
-    scored = score_items(filtered, domain)
+    scored = score_items(items, domain)
     scored.sort(key=lambda x: x.score, reverse=True)
 
     duration = time.time() - start
-    # LLM 调用次数估算：pre_filter 批次数 + score_items 批次数
-    pre_batches = (total_input + 19) // 20  # batch_size=20
-    score_batches = (pre_passed + 4) // 5   # batch_size=5
-    llm_calls = pre_batches + score_batches
+    score_batches = (total_input + 14) // 15  # batch_size=15
+    llm_calls = score_batches
 
     return FilterResult(
         scored_items=scored,
         pre_filter_total=total_input,
-        pre_filter_passed=pre_passed,
+        pre_filter_passed=total_input,
         scored_total=len(scored),
         llm_calls=llm_calls,
         duration_seconds=round(duration, 2),

@@ -67,7 +67,44 @@ for pid_file in "$PID_DIR"/*.pid; do
   fi
 done
 
-if [ "$total" -eq 0 ]; then
+# LaunchAgent 服务（macOS 登录自启）
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  UID_NUM=$(id -u)
+  launchd_found=0
+  for label in com.intel-pipeline.api.elderly-care com.intel-pipeline.api.china-africa com.intel-pipeline.scheduler; do
+    state=$(launchctl print "gui/${UID_NUM}/${label}" 2>/dev/null | awk -F'= ' '/^[[:space:]]*state =/{print $2; exit}')
+    [ -n "$state" ] || continue
+    launchd_found=1
+    total=$((total + 1))
+    if [ "$state" = "running" ] || [ "$state" = "active" ]; then
+      echo -e "  ${GREEN}●${NC} launchd/$label"
+      echo -e "    状态 ${GREEN}${state}${NC}"
+      running=$((running + 1))
+      if [[ "$label" == com.intel-pipeline.api.* ]]; then
+        domain=${label#com.intel-pipeline.api.}
+        case "$domain" in
+          china-africa) port=8900 ;;
+          elderly-care) port=8901 ;;
+          *) port="" ;;
+        esac
+        if [ -n "$port" ] && lsof -i:"$port" -sTCP:LISTEN -t >/dev/null 2>&1; then
+          echo -e "    端口 $port ✓"
+        fi
+      fi
+    else
+      echo -e "  ${RED}●${NC} launchd/$label"
+      echo -e "    状态 ${RED}${state}${NC}"
+    fi
+  done
+  if [ "$launchd_found" -eq 0 ] && [ "$total" -eq 0 ]; then
+    echo -e "  ${YELLOW}没有已注册的服务${NC}"
+    echo ""
+    echo "  运行 ./scripts/start.sh 或 ./scripts/install-launchagent.sh 启动服务"
+  elif [ "$total" -gt 0 ]; then
+    echo ""
+    echo "  运行中: $running / $total"
+  fi
+elif [ "$total" -eq 0 ]; then
   echo -e "  ${YELLOW}没有已注册的服务${NC}"
   echo ""
   echo "  运行 ./scripts/start.sh 启动服务"
@@ -86,4 +123,12 @@ if [ -d "$LOG_DIR" ] && [ "$(ls -A "$LOG_DIR" 2>/dev/null)" ]; then
     echo -e "  ${YELLOW}$name:${NC}"
     tail -3 "$log_file" 2>/dev/null | sed 's/^/    /'
   done
+fi
+
+# 管道与质量指标（elderly-care 主产品）
+VENV_PYTHON="$PROJECT_DIR/.venv/bin/python"
+if [ -f "$VENV_PYTHON" ] && [ -f "$PROJECT_DIR/data/intel-elderly-care.db" ]; then
+  echo ""
+  echo "📈 质量指标（elderly-care）："
+  "$VENV_PYTHON" -m engine.cli -d elderly-care quality-metrics 2>/dev/null | sed 's/^/  /' || true
 fi

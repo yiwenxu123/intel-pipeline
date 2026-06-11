@@ -9,12 +9,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Optional
 
 from engine.config import settings
 from engine.models import SourceType, SOURCE_TYPE_CONFIG
@@ -88,7 +85,7 @@ def detect_degradation(domain: str) -> list[dict]:
     根据信源类型使用不同的评估标准。
     跳过已确认的信源。
     """
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=DEGRADATION_WINDOW_DAYS)).isoformat()
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=DEGRADATION_WINDOW_DAYS)).strftime("%Y-%m-%d")
     degraded = []
 
     # 加载领域配置，获取信源类型和确认状态
@@ -219,7 +216,7 @@ def restore_source(domain: str, source_id: str) -> bool:
 
     content = yaml_path.read_text(encoding="utf-8")
     # 移除 auto-degraded 的 enabled: false 行
-    pattern = rf'\n\s*enabled:\s*false\s*# auto-degraded.*\n'
+    pattern = r'\n\s*enabled:\s*false\s*# auto-degraded.*\n'
     # 只在对应 source_id 块中替换
     source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
     match = re.search(source_pattern, content)

@@ -1,0 +1,151 @@
+{
+  "scan_timestamp": "2026-06-11T12:00:00+08:00",
+  "project": "intel-pipeline",
+  "truncated": false,
+  "ignore_stats": {
+    "patterns": [
+      ".venv/**",
+      "data/**",
+      ".env",
+      "*.png",
+      "*.log",
+      ".playwright-mcp/**",
+      "__pycache__/**",
+      "page-snapshot.yml",
+      "dashboard-*-snapshot.yml"
+    ],
+    "skipped_dirs": ["data", ".venv", ".playwright-mcp", ".spec-workflow"],
+    "skipped_reasons": {
+      "data": "gitignore - runtime generated",
+      ".venv": "gitignore - virtual env",
+      ".playwright-mcp": "MCP debug snapshots",
+      "*.png": "binary assets",
+      ".spec-workflow": "workflow templates, not core code"
+    }
+  },
+  "coverage": {
+    "estimated_total_files": 75,
+    "scanned_files": 58,
+    "coverage_percent": 77,
+    "phases_completed": ["A", "B", "C"],
+    "documented_modules": 10,
+    "undocumented_modules": 3
+  },
+  "modules": [
+    {
+      "path": "engine",
+      "doc": "engine/CLAUDE.md",
+      "entry": "engine/cli.py",
+      "interfaces": ["CLI: intel fetch|filter|report|api|pipe|evolve", "engine/pipeline.py: run_full_pipeline"],
+      "tests": ["tests/test_store.py", "tests/test_filter.py", "tests/test_api.py", "tests/test_domain.py", "tests/test_fetcher.py", "tests/test_evolution.py"],
+      "coverage_percent": 90,
+      "gaps": ["filter score_items 无 mock LLM 集成测试"]
+    },
+    {
+      "path": "engine/fetcher",
+      "doc": "engine/fetcher/CLAUDE.md",
+      "entry": "engine/fetcher/runner.py: fetch_all",
+      "interfaces": ["fetch_rss", "fetch_web", "fetch_searxng", "fetch_ageclub", "full_text_fetcher.fetch_and_extract"],
+      "tests": ["tests/test_fetcher.py"],
+      "coverage_percent": 85,
+      "gaps": ["searxng_fetcher 无独立单测"]
+    },
+    {
+      "path": "engine/filter",
+      "doc": "engine/filter/CLAUDE.md",
+      "entry": "engine/filter/pipeline.py: score_items",
+      "interfaces": ["engine/filter/llm_client.py: chat"],
+      "tests": ["tests/test_filter.py"],
+      "coverage_percent": 80,
+      "gaps": ["score_items 无 mock LLM 集成测试"]
+    },
+    {
+      "path": "engine/output",
+      "doc": "engine/output/CLAUDE.md",
+      "entry": "engine/output/api.py",
+      "interfaces": ["FastAPI REST", "RSS feeds", "dashboard.html", "static/tailwind.js"],
+      "tests": ["tests/test_api.py"],
+      "coverage_percent": 85,
+      "gaps": ["notifier.py、report.py 无独立单测"]
+    },
+    {
+      "path": "engine/evolution",
+      "doc": "engine/evolution/CLAUDE.md",
+      "entry": "engine/cli.py evolve group",
+      "interfaces": ["source_analyzer", "scoring_calibrator", "keyword_expander", "source_lifecycle", "scoring_injector", "keyword_staging"],
+      "tests": ["tests/test_evolution.py"],
+      "coverage_percent": 85,
+      "gaps": ["pipe 后进化流程无端到端集成测试"]
+    },
+    {
+      "path": "domains",
+      "doc": "domains/CLAUDE.md",
+      "entry": "engine/domain.py: load_domain",
+      "interfaces": ["sources.yaml", "categories.yaml", "keywords.yaml", "scoring.md", "pre_filter.md"],
+      "tests": ["tests/test_domain.py"],
+      "coverage_percent": 80,
+      "gaps": ["真实领域 yaml 无 schema 校验", "web/index.html 未实现"]
+    },
+    {
+      "path": "domains/elderly-care",
+      "doc": "domains/elderly-care/CLAUDE.md",
+      "entry": "domains/elderly-care/sources.yaml",
+      "interfaces": ["7 分类体系", "54 信源", "keywords.yaml"],
+      "tests": [],
+      "coverage_percent": 75,
+      "gaps": ["scoring.md/pre_filter.md 内容未全文扫描", "EXTEND.md 未深读"]
+    },
+    {
+      "path": "domains/china-africa",
+      "doc": "domains/china-africa/CLAUDE.md",
+      "entry": "domains/china-africa/sources.yaml",
+      "interfaces": ["8 分类 + freshness_days", "21 信源", "keywords.yaml"],
+      "tests": [],
+      "coverage_percent": 75,
+      "gaps": ["scoring.md/pre_filter.md 内容未全文扫描"]
+    },
+    {
+      "path": "tests",
+      "doc": null,
+      "entry": "tests/conftest.py",
+      "interfaces": ["pytest fixtures: store, domain, api client"],
+      "tests": ["6 test modules, ~75+ cases"],
+      "coverage_percent": 95,
+      "gaps": ["无 CLAUDE.md", "无端到端 pipe 集成测试"]
+    },
+    {
+      "path": "scripts",
+      "doc": null,
+      "entry": "scripts/scheduler.py",
+      "interfaces": ["APScheduler cron", "start.sh/stop.sh/status.sh", "多领域端口映射"],
+      "tests": [],
+      "coverage_percent": 65,
+      "gaps": ["无 CLAUDE.md", "shell 脚本未单独文档化"]
+    },
+    {
+      "path": "skills",
+      "doc": null,
+      "entry": "skills/*/SKILL.md",
+      "interfaces": ["GET /skill/{name}/SKILL.md"],
+      "tests": [],
+      "coverage_percent": 30,
+      "gaps": ["SKILL.md 含过时路径（Windows run.bat）", "无 CLAUDE.md"]
+    }
+  ],
+  "architecture_changes_since_last_scan": [
+    "新增 engine/fetcher/full_text_fetcher.py — pipe 阶段对 score≥6 条目提取全文",
+    "raw_items 新增 full_text 列，RawItem.best_content 优先返回全文",
+    "新增 tests/test_fetcher.py、tests/test_evolution.py",
+    "china-africa 补齐 keywords.yaml 与 categories freshness_days",
+    "elderly-care categories 现为 7 类（research 分类已移除）",
+    "output 新增 static/ 离线 Tailwind 资源",
+    "scripts/start.sh 多领域端口：china-africa→8900, elderly-care→8901"
+  ],
+  "next_scan_priority": [
+    "skills/*/SKILL.md — 更新过时路径与多领域说明",
+    "scripts/ — 补充 CLAUDE.md 或并入根文档运维章节",
+    "engine/output/notifier.py — 深读推送格式",
+    "domains/*/scoring.md — 全文扫描评分 rubric 变更",
+    "tests/ — 补充 pipe 端到端集成测试文档"
+  ]
+}

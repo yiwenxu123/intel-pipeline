@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 from engine.config import settings
 from engine.store import Store
@@ -177,7 +175,7 @@ def suggest_adjustments(domain: str, days: int = 7) -> list[str]:
         )
     elif rate < 10 and data["overall"]["total"] > 10:
         suggestions.append(
-            "整体精选率过低（{:.0f}%），可能预筛过严或评分偏严，建议检查 pre_filter.md 的保留标准".format(rate)
+            "整体精选率过低（{:.0f}%），评分偏严，建议在 scoring.md 中放宽低分标准".format(rate)
         )
 
     # 分类维度异常
@@ -189,7 +187,7 @@ def suggest_adjustments(domain: str, days: int = 7) -> list[str]:
             )
         if cat["avg_score"] < 4.0 and cat["total"] > 3:
             suggestions.append(
-                "分类 '{}' 平均分异常低（{}），可能是该分类内容质量差，建议在 pre_filter.md 中降低该分类的保留门槛".format(
+                "分类 '{}' 平均分异常低（{}），可能是该分类内容质量差，建议在 scoring.md 中降低该分类的打分门槛".format(
                     cat["category"], cat["avg_score"])
             )
 

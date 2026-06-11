@@ -119,16 +119,6 @@ sources:
     keywords_filter: false
     tags: [养老, 政策, 官方]
 
-  - id: wx_yiou
-    name: 亿欧大健康
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3095250124
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    tags: [大健康, 产业]
-
   - id: wx_agecare
     name: AgeCare养老服务
     kind: rss
@@ -136,7 +126,7 @@ sources:
     tier: T1
     type: media
     lang: zh
-    keywords_filter: false
+    keywords_filter: true  # 260 条未评分，加过滤控制噪声（去除大会报名/推广内容）
     tags: [养老, 服务]
 
   - id: wx_agetravel
@@ -148,17 +138,6 @@ sources:
     lang: zh
     keywords_filter: false
     tags: [养老, 文旅]
-
-  - id: wx_yazhouyanglao
-    name: 亚洲养老网
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_2390696089
-    tier: T1
-    type: media
-    lang: zh
-    enabled: false  # 内容过旧（2025年），长期无更新
-    keywords_filter: false
-    tags: [养老, 行业]
 
   - id: wx_aizhaohu
     name: 爱照护未来养老研究院
@@ -180,17 +159,6 @@ sources:
     keywords_filter: false
     tags: [养老, 研究, 数据]
 
-  - id: wx_wencuibao
-    name: 文萃报
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3281269773
-    tier: T2
-    type: general
-    lang: zh
-    enabled: false  # 生活媒体，与养老领域无关
-    keywords_filter: false
-    tags: [老年, 生活]
-
   # -- 新增公众号 --
   - id: wx_agetech
     name: AgeTech银发科技
@@ -199,7 +167,8 @@ sources:
     tier: T1
     type: media
     lang: zh
-    keywords_filter: false
+    enabled: true  # 2026-06-11 用户重新添加到 WeRSS，启用并加关键词过滤提纯
+    keywords_filter: true
     tags: [养老科技, 投融资, AgeTech]
 
   - id: wx_ageclub
@@ -209,18 +178,9 @@ sources:
     tier: T1
     type: media
     lang: zh
+    enabled: false  # 与 ageclub_web 重复，avg 5.1，0 精选
     keywords_filter: false
     tags: [养老, 产业, AgeClub]
-
-  - id: wx_yinfajingji_dc
-    name: 银发经济洞察
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3935500183
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    tags: [银发经济, 洞察]
 
   - id: wx_amuyanglao
     name: 阿沐养老
@@ -229,19 +189,9 @@ sources:
     tier: T1
     type: media
     lang: zh
+    enabled: false  # avg 5.3，仅 2 条，0 精选
     keywords_filter: false
     tags: [养老, 行业, 深度]
-
-  - id: wx_yanglaoxgc
-    name: 养老新观察
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3910644446
-    tier: T1
-    type: media
-    lang: zh
-    enabled: false  # 内容过旧（2024年），长期无更新
-    keywords_filter: false
-    tags: [养老, 观察]
 
   - id: wx_dongmaiwang
     name: 动脉网
@@ -250,7 +200,7 @@ sources:
     tier: T1
     type: media
     lang: zh
-    keywords_filter: false
+    keywords_filter: true  # avg 4.5，加过滤提纯（去除脑机/减肥药等非养老内容）
     tags: [医疗, 养老科技, 投融资]
 
   - id: wx_changhuxqgc
@@ -272,6 +222,28 @@ sources:
     lang: zh
     keywords_filter: false
     tags: [康养, 官方]
+
+  - id: wx_yinfajingji_gc
+    name: 银发经济观察
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3000076142
+    tier: T1
+    type: media
+    lang: zh
+    enabled: true
+    keywords_filter: false
+    tags: [银发经济, 产业, 资讯, 趋势]
+
+  - id: wx_jiankangzg
+    name: 健康中国
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_2396268083
+    tier: T1
+    type: policy
+    lang: zh
+    enabled: true
+    keywords_filter: true
+    tags: [卫健委, 健康, 政策, 官方]
 
   # -- 海外信源 --
   - id: joint_kaigo
@@ -345,7 +317,7 @@ sources:
     tier: T1
     type: overseas
     lang: ja
-    enabled: false  # 404 Not Found，RSS 地址失效
+    enabled: false  # 2026-06-11 验证：404 Not Found，无可用RSS feed
     keywords_filter: true
     tags: [科技, 养老, 日本]
 
@@ -356,7 +328,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: ja
-    enabled: false  # 404 Not Found，RSS 地址失效
+    enabled: false  # 2026-06-11 验证：404 Not Found，无可用RSS feed
     keywords_filter: true
     tags: [健康, 养老, 日本]
 
@@ -439,7 +411,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
-    enabled: false  # 404 Not Found，RSS 地址失效
+    enabled: false  # 2026-06-11 验证：404 Not Found，RSS地址失效
     keywords_filter: true
     tags: [新闻, 韩国, 养老]
 
@@ -450,7 +422,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: en
-    enabled: false  # 采集到 0 条，RSS 格式可能已变更
+    enabled: false  # 2026-06-11 验证：HTTP 200但RSS内容为空(420字节)
     keywords_filter: true
     tags: [新闻, 韩国, 养老]
 
@@ -508,6 +480,68 @@ sources:
     enabled: false  # 采集到 0 条，RSS 格式可能已变更
     keywords_filter: false
     tags: [认知症, 国际, 研究]
+
+  # ━━━ T1 候选信源（待验证 WeRSS ID 后启用）━━━
+  # 以下信源用于填补 finance_security / health_services / lifestyle 分类缺口
+  # 微信公众号需先在 WeRSS (10.207.251.137:8001) 上获取 MP_WXS ID
+
+  # -- 养老金融（填补 finance_security 缺口） --
+  - id: wx_yanglaojin50
+    name: 养老金融50人论坛
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3943710205
+    tier: T1
+    type: research
+    lang: zh
+    enabled: true  # 清华五道口智库，养老金融权威研究
+    keywords_filter: false
+    tags: [养老金融, 政策, 研究, 清华]
+
+  - id: wx_zgylbx
+    name: 中国医疗保险
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_2398482581
+    tier: T1
+    type: policy
+    lang: zh
+    enabled: true  # 国家医保局主管刊物，长护险政策第一手解读
+    keywords_filter: false
+    tags: [医保, 长护险, 政策, 官方]
+
+  # -- 健康服务（填补 health_services 缺口） --
+  - id: wx_jkb_cn
+    name: 健康报
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_2394889101
+    tier: T1
+    type: media
+    lang: zh
+    enabled: true  # 国家卫健委主管，医养结合权威报道
+    keywords_filter: true
+    tags: [健康, 医养结合, 慢病, 卫健委]
+
+  # -- 养老生活（填补 lifestyle 缺口） --
+  - id: wx_zglnjy
+    name: 中国老年教育
+    kind: rss
+    url: http://10.207.251.137:8001/rss/MP_WXS_3097875156
+    tier: T1.5
+    type: media
+    lang: zh
+    enabled: true  # 老年大学、旅居养老、银发文娱
+    keywords_filter: true
+    tags: [老年教育, 旅居, 文娱, 生活]
+
+  # -- 海外英文源 --
+  - id: chinapolicy_substack
+    name: China Policy Monitor
+    kind: rss
+    url: https://chinapolicy.substack.com/feed
+    tier: T1.5
+    type: overseas
+    lang: en
+    keywords_filter: true
+    tags: [政策, 长护险, 养老, 英文, 深度]
 
   # ━━━ T1.5 热榜 + 关键词过滤 ━━━
 
@@ -580,6 +614,7 @@ sources:
     tier: T1.5
     type: overseas
     lang: ja
+    enabled: false  # 133 条 0 精选，avg 1.3，纯噪声
     keywords_filter: false
     selectors:
       search_queries:

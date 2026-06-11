@@ -21,6 +21,7 @@ class DomainConfig:
         self.sources: list[SourceDef] = self._load_sources()
         self.scoring_prompt: str = self._load_text("scoring.md")
         self.pre_filter_prompt: str = self._load_text("pre_filter.md")
+        self.briefing_prompt: str = self._load_text("briefing.md", optional=True)
         self.categories: dict = self._load_yaml("categories.yaml")
         self.category_freshness: dict[str, int] = self._load_category_freshness()
         self.output_template: Optional[str] = self._load_text("daily_report.md", optional=True)

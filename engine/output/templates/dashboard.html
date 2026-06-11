@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>情报面板 — Intel Pipeline</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='16' fill='%23ca8a04'/><text x='50' y='68' font-size='52' font-weight='bold' text-anchor='middle' fill='white'>情</text></svg>">
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="/static/tailwind.js"></script>
 <script>
 tailwind.config = {
   theme: {
@@ -19,8 +19,7 @@ tailwind.config = {
 }
 </script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
-body { font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif; }
 .score-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2.5rem; height: 1.75rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.875rem; }
 .score-hot { background: #dc2626; color: #fff; }
 .score-warm { background: #f59e0b; color: #fff; }
@@ -52,16 +51,25 @@ body { font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif; }
   <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div id="domain-icon" class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-sm">情</div>
-      <h1 id="domain-title" class="text-lg font-bold text-stone-900">情报面板</h1>
+      <div class="flex items-center gap-2">
+        <h1 id="domain-title" class="text-lg font-bold text-stone-900">情报面板</h1>
+        <select id="domain-switcher" onchange="switchDomain(this.value)"
+                class="ml-1 text-xs border border-surface-200 rounded-md px-2 py-1 bg-surface-50 text-stone-600 focus:outline-none focus:ring-1 focus:ring-brand-500 cursor-pointer">
+          <option value="elderly-care">银发产业</option>
+          <option value="china-africa">中非经贸</option>
+        </select>
+      </div>
     </div>
     <div id="stats-bar" class="flex items-center gap-4 text-sm text-stone-500"></div>
   </div>
   <div class="max-w-7xl mx-auto px-4">
     <div class="flex gap-6 border-b border-surface-200">
+      <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('home')" id="tab-home">总览</button>
       <button class="tab-btn active text-sm font-medium py-2.5 border-b-2" onclick="setView('selected')" id="tab-selected">日报</button>
       <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('policy')" id="tab-policy">政策追踪</button>
       <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('deep')" id="tab-deep">深度阅读</button>
       <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('health')" id="tab-health">系统健康</button>
+      <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('trends')" id="tab-trends">趋势</button>
     </div>
   </div>
 </header>
@@ -145,58 +153,117 @@ body { font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif; }
 const DOMAIN = new URLSearchParams(window.location.search).get('domain') || 'elderly-care';
 const DOMAIN_TITLES = { 'elderly-care': '银发产业情报', 'china-africa': '中非经贸情报' };
 const DOMAIN_ICONS = { 'elderly-care': '银', 'china-africa': '非' };
-
-const CATEGORY_COLORS = {
-  policy: 'bg-red-50 text-red-700', industry: 'bg-blue-50 text-blue-700',
-  investment: 'bg-green-50 text-green-700', finance: 'bg-purple-50 text-purple-700',
-  tech_transfer: 'bg-cyan-50 text-cyan-700', diplomacy: 'bg-amber-50 text-amber-700',
-  elderly_tech: 'bg-cyan-50 text-cyan-700', health_services: 'bg-green-50 text-green-700',
-  finance_security: 'bg-purple-50 text-purple-700', lifestyle: 'bg-pink-50 text-pink-700',
-  risk: 'bg-orange-50 text-orange-700', case_study: 'bg-stone-100 text-stone-600',
-  trade: 'bg-blue-50 text-blue-700', uncategorized: 'bg-stone-100 text-stone-500',
-};
+const DOMAIN_LIST = ['elderly-care', 'china-africa'];
 
 let state = { view: 'selected', date: null, rangeMode: 'day', days: 3, category: null, sourceId: null, query: '' };
 let allItems = [];       // 政策追踪/深度阅读用
 let dateItems = [];      // 日报视图用
 let catLabels = {};
+let catColors = {};
 let sourceNameCache = {};
+let sourceHealthMap = {}; // 信源ID → health 状态映射
 let availableDates = []; // 有数据的日期列表
 
+const HEALTH_COLORS = {
+  'healthy': 'bg-green-400',
+  'excellent': 'bg-green-500',
+  'observing': 'bg-blue-400',
+  'low': 'bg-yellow-400',
+  'ineffective': 'bg-red-400',
+  'critical': 'bg-red-500',
+  'unknown': 'bg-stone-300',
+};
+const HEALTH_LABELS = {
+  'healthy': '健康', 'excellent': '优秀', 'observing': '观察中',
+  'low': '低效', 'ineffective': '无效', 'critical': '危险', 'unknown': '未知',
+};
+
 const VIEW_CONFIG = {
+  home:     { label: '总览', minScore: 0, filterCat: null, filterType: null, useDateNav: false },
   selected: { label: '日报', minScore: 6.0, filterCat: null, filterType: null, useDateNav: true },
   policy:   { label: '政策追踪', minScore: 6.0, filterCat: 'policy', filterType: null, useDateNav: false },
   deep:     { label: '深度阅读', minScore: 6.0, filterCat: null, filterType: ['report','analysis','research'], useDateNav: false },
   health:   { label: '系统健康', minScore: 0, filterCat: null, filterType: null, useDateNav: false },
+  trends:   { label: '趋势', minScore: 0, filterCat: null, filterType: null, useDateNav: false },
 };
+
+// ── 领域切换 ──
+
+function switchDomain(domain) {
+  if (domain === DOMAIN) return;
+  const params = new URLSearchParams(window.location.search);
+  params.set('domain', domain);
+  // 保留当前 view（除非是跨领域不兼容视图）
+  const v = params.get('view');
+  if (!v) params.set('view', 'selected');
+  window.location.search = params.toString();
+}
 
 // ── 初始化 ──
 
 async function init() {
+  // 设置领域切换器当前值
+  document.getElementById('domain-switcher').value = DOMAIN;
+
   const title = DOMAIN_TITLES[DOMAIN] || DOMAIN;
   const icon = DOMAIN_ICONS[DOMAIN] || '情';
   document.getElementById('domain-title').textContent = title;
   document.getElementById('domain-icon').textContent = icon;
   document.title = title + ' — Intel Pipeline';
 
-  // 从 URL 读取 date 参数
+  // 从 URL 读取 view/date 参数
+  const urlView = new URLSearchParams(window.location.search).get('view');
   const urlDate = new URLSearchParams(window.location.search).get('date');
-
-  await Promise.all([loadStats(), loadCategoriesLabels()]);
-
+  if (urlView && ['home','selected','policy','deep','health','trends'].includes(urlView)) {
+    state.view = urlView;
+  }
   if (urlDate) {
     state.date = urlDate;
   }
 
-  await loadView();
+  await Promise.all([loadStats(), loadCategoriesLabels(), loadSourceHealth()]);
+
+  // 使用 setView 初始化（处理 tab 高亮、侧边栏显隐等）
+  setView(state.view);
 }
 
 async function loadCategoriesLabels() {
   try {
     const catData = await fetchJSON(`/api/categories?domain=${DOMAIN}`);
     catLabels = {};
-    (catData.categories || []).forEach(c => { catLabels[c.id] = c.name; });
-  } catch (e) { catLabels = {}; }
+    catColors = {};
+    (catData.categories || []).forEach(c => {
+      catLabels[c.id] = c.name;
+      if (c.color) catColors[c.id] = c.color;
+    });
+  } catch (e) { catLabels = {}; catColors = {}; }
+}
+
+async function loadSourceHealth() {
+  try {
+    const data = await fetchJSON(`/api/sources?domain=${DOMAIN}`);
+    sourceHealthMap = {};
+    (data.sources || []).forEach(s => { sourceHealthMap[s.source_id] = s.health || 'unknown'; });
+  } catch (e) { sourceHealthMap = {}; }
+}
+
+function timeAgo(isoStr) {
+  if (!isoStr) return null;
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return '刚刚';
+  if (hours < 24) return `${hours}h 前`;
+  const days = Math.floor(hours / 24);
+  return `${days}d 前`;
+}
+
+function freshnessColor(isoStr) {
+  if (!isoStr) return 'text-red-500';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const hours = diff / 3600000;
+  if (hours < 6) return 'text-green-600';
+  if (hours < 24) return 'text-yellow-600';
+  return 'text-red-500';
 }
 
 async function loadStats() {
@@ -204,12 +271,33 @@ async function loadStats() {
     const data = await fetchJSON(`/api/stats?domain=${DOMAIN}`);
     const bar = document.getElementById('stats-bar');
     const rate = data.total_fetched > 0 ? ((data.selected / data.total_fetched) * 100).toFixed(1) : '0';
+    const ago = timeAgo(data.last_fetch_time);
+    const fColor = freshnessColor(data.last_fetch_time);
+    const fetchDisplay = ago
+      ? `<span class="${fColor}">采集 <strong>${ago}</strong></span>`
+      : `<span class="text-red-500">尚未采集</span>`;
+    const errDisplay = (data.last_fetch_errors || 0) > 0
+      ? `<span class="text-stone-300">|</span><span class="text-red-500">${data.last_fetch_errors} 信源失败</span>`
+      : '';
+    const warnThreshold = data.unscored_warn_threshold || 100;
+    const unscored = data.unscored_count || 0;
+    const unscoredStyle = unscored >= warnThreshold ? 'text-red-600 font-semibold' : 'text-yellow-600';
+    const unscoredHint = unscored >= warnThreshold
+      ? ` title="超过阈值 ${warnThreshold}，请运行 pipe 或缩小 INTEL_SCORE_WINDOW_DAYS"`
+      : '';
     bar.innerHTML = `
-      <span>采集 <strong>${(data.total_fetched || 0).toLocaleString()}</strong></span>
+      <span>总计 <strong>${(data.total_fetched || 0).toLocaleString()}</strong></span>
       <span class="text-stone-300">|</span>
       <span>精选 <strong class="text-brand-700">${(data.selected || 0).toLocaleString()}</strong></span>
       <span class="text-stone-300">|</span>
       <span>精选率 <strong>${rate}%</strong></span>
+      <span class="text-stone-300">|</span>
+      ${fetchDisplay}
+      ${errDisplay}
+      ${unscored > 0 ? `<span class="text-stone-300">|</span><span class="${unscoredStyle}"${unscoredHint}>待评分 <strong>${unscored}</strong>${unscored >= warnThreshold ? ' ⚠' : ''}</span>` : ''}
+      <span class="text-stone-300">|</span>
+      <span class="text-stone-400">${data.db_size_mb || 0} MB</span>
+      ${data.llm_cost_month_cny > 0 ? `<span class="text-stone-300">|</span><span class="text-stone-400">LLM ¥${data.llm_cost_month_cny}</span>` : ''}
     `;
   } catch (e) {
     document.getElementById('stats-bar').innerHTML = '<span class="text-red-500">统计数据加载失败</span>';
@@ -221,8 +309,12 @@ async function loadStats() {
 async function loadView() {
   const config = VIEW_CONFIG[state.view];
 
-  if (state.view === 'health') {
+  if (state.view === 'home') {
+    await loadHomeView();
+  } else if (state.view === 'health') {
     await loadHealthView();
+  } else if (state.view === 'trends') {
+    await loadTrendsView();
   } else if (config.useDateNav) {
     await loadDateView();
   } else {
@@ -327,7 +419,13 @@ async function loadTimeRangeView(config) {
   let items = [...allItems];
   items = items.filter(i => (i.score || 0) >= config.minScore);
   if (config.filterCat) items = items.filter(i => (i.category || '') === config.filterCat);
-  if (config.filterType) items = items.filter(i => config.filterType.includes(i.content_type || 'news'));
+  if (config.filterType) {
+    items = items.filter(i => {
+      const hasFull = (i.full_text || '').length > 200;
+      const typeMatch = config.filterType.includes(i.content_type || 'news');
+      return state.view === 'deep' ? (hasFull || typeMatch) : typeMatch;
+    });
+  }
   if (state.days > 0) {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - state.days);
     items = items.filter(i => i.published && new Date(i.published) >= cutoff);
@@ -338,7 +436,16 @@ async function loadTimeRangeView(config) {
     const q = state.query.toLowerCase();
     items = items.filter(i => ((i.title || '') + (i.summary || '')).toLowerCase().includes(q));
   }
-  items.sort((a, b) => (b.score || 0) - (a.score || 0));
+  if (state.view === 'deep') {
+    items.sort((a, b) => {
+      const aFull = (a.full_text || '').length;
+      const bFull = (b.full_text || '').length;
+      if (aFull !== bFull) return bFull - aFull;
+      return (b.score || 0) - (a.score || 0);
+    });
+  } else {
+    items.sort((a, b) => (b.score || 0) - (a.score || 0));
+  }
 
   renderItems(items);
   updateFilterBar(items.length, config);
@@ -370,8 +477,19 @@ function renderHealthView(data) {
 
   let html = '';
 
+  const lastFetchDisplay = (() => {
+    const t = stats.last_fetch_time;
+    if (!t) return '<span class="text-red-500">尚未采集</span>';
+    const diff = Date.now() - new Date(t).getTime();
+    const hours = Math.floor(diff / 3600000);
+    const color = hours < 6 ? 'text-green-600' : hours < 24 ? 'text-yellow-600' : 'text-red-500';
+    if (hours < 1) return `<span class="${color}">刚刚</span>`;
+    if (hours < 24) return `<span class="${color}">${hours}h 前</span>`;
+    return `<span class="text-red-500">${Math.floor(hours/24)}d 前</span>`;
+  })();
+
   // 统计概览
-  html += `<div class="grid grid-cols-4 gap-4 mb-6">
+  html += `<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-lg border border-surface-200 p-4">
       <div class="text-2xl font-bold text-brand-700">${(stats.total_fetched || 0).toLocaleString()}</div>
       <div class="text-sm text-stone-500">总采集</div>
@@ -388,6 +506,34 @@ function renderHealthView(data) {
       <div class="text-2xl font-bold text-stone-600">${sourceHealth.total_count || 0}</div>
       <div class="text-sm text-stone-500">总信源</div>
     </div>
+    <div class="bg-white rounded-lg border border-surface-200 p-4">
+      <div class="text-lg font-bold">${lastFetchDisplay}</div>
+      <div class="text-sm text-stone-500">最近采集</div>
+    </div>
+    <div class="bg-white rounded-lg border border-surface-200 p-4">
+      <div class="text-2xl font-bold ${(stats.unscored_count || 0) >= (stats.unscored_warn_threshold || 100) ? 'text-red-600' : (stats.unscored_count || 0) > 0 ? 'text-yellow-600' : 'text-green-600'}">${stats.unscored_count || 0}</div>
+      <div class="text-sm text-stone-500">待评分${(stats.unscored_count || 0) >= (stats.unscored_warn_threshold || 100) ? '（超阈值）' : ''}</div>
+    </div>
+    <div class="bg-white rounded-lg border border-surface-200 p-4">
+      <div class="text-2xl font-bold text-stone-600">${stats.db_size_mb || 0}</div>
+      <div class="text-sm text-stone-500">数据库 (MB)</div>
+    </div>
+    <div class="bg-white rounded-lg border border-surface-200 p-4">
+      <div class="text-2xl font-bold ${(stats.sources_zero_selected || 0) > 0 ? 'text-red-500' : 'text-green-600'}">${stats.sources_zero_selected || 0}</div>
+      <div class="text-sm text-stone-500">低效信源</div>
+    </div>
+    ${stats.last_pipe_duration != null ? `<div class="bg-white rounded-lg border border-surface-200 p-4">
+      <div class="text-lg font-bold text-stone-700">${stats.last_pipe_duration}s</div>
+      <div class="text-sm text-stone-500">上次 pipe 耗时</div>
+    </div>` : ''}
+    ${(stats.last_fetch_errors || 0) > 0 ? `<div class="bg-white rounded-lg border border-surface-200 p-4">
+      <div class="text-2xl font-bold text-red-500">${stats.last_fetch_errors}</div>
+      <div class="text-sm text-stone-500">上次采集失败</div>
+    </div>` : ''}
+    ${(stats.llm_cost_month_cny || 0) > 0 ? `<div class="bg-white rounded-lg border border-surface-200 p-4">
+      <div class="text-2xl font-bold text-brand-700">¥${stats.llm_cost_month_cny}</div>
+      <div class="text-sm text-stone-500">本月 LLM 估算</div>
+    </div>` : ''}
   </div>`;
 
   // 信源健康度
@@ -426,7 +572,8 @@ function renderHealthView(data) {
     const typeLabel = typeLabels[src.source_type] || src.source_type;
     html += `<div class="flex items-center justify-between p-2 rounded-lg ${statusBg}">
       <div class="flex items-center gap-3">
-        <span class="text-sm font-medium text-stone-900">${escapeHtml(src.source_id)}</span>
+        <span class="text-sm font-medium text-stone-900">${escapeHtml(src.source_name || src.source_id)}</span>
+        ${src.source_name ? `<span class="text-xs text-stone-400">${escapeHtml(src.source_id)}</span>` : ''}
         <span class="category-pill ${typeColor}">${typeLabel}</span>
         <span class="text-xs ${statusColor}">状态：${statusLabel}</span>
       </div>
@@ -559,6 +706,177 @@ function todayStr() {
 
 // ── 渲染 ──
 
+function catColor(id) {
+  return catColors[id] || 'bg-stone-100 text-stone-500';
+}
+
+function itemHeadline(item) {
+  return item.headline || item.title_display || item.title || '';
+}
+function itemLead(item) {
+  return item.lead || item.summary || '';
+}
+function itemTakeaway(item) {
+  return item.takeaway || item.reason || '';
+}
+function itemKeyPoints(item) {
+  return parseTags(item.key_points);
+}
+
+function contentTypeBadge(item) {
+  const map = {
+    analysis: ['行业观点', 'bg-violet-50 text-violet-700'],
+    opinion: ['行业观点', 'bg-violet-50 text-violet-700'],
+    research: ['研究报告', 'bg-indigo-50 text-indigo-700'],
+    report: ['行业报告', 'bg-indigo-50 text-indigo-700'],
+    policy: ['政策文件', 'bg-red-50 text-red-700'],
+  };
+  const t = (item.content_type || 'news').toLowerCase();
+  const entry = map[t];
+  if (!entry) return '';
+  return `<span class="text-xs px-1.5 py-0.5 rounded ${entry[1]}">${entry[0]}</span>`;
+}
+
+function renderKeyPointsList(points, limit, offset = 0) {
+  const arr = Array.isArray(points) ? points : itemKeyPoints({ key_points: points });
+  const slice = arr.slice(offset, offset + limit);
+  if (!slice.length) return '';
+  const items = slice.map(p =>
+    `<li class="text-sm text-stone-600 leading-snug">${escapeHtml(String(p))}</li>`
+  ).join('');
+  return `<ul class="mt-2 ml-4 space-y-1 list-disc list-outside">${items}</ul>`;
+}
+
+function bestContent(item) {
+  return (item.full_text || item.content || '').trim();
+}
+
+const NAV_BOILERPLATE_MARKERS = ['首页', '品牌矩阵', '会员专区', '发布商机', '登录'];
+
+function isUsableBody(text) {
+  if (!text || text.length < 80) return false;
+  let hits = 0;
+  for (const m of NAV_BOILERPLATE_MARKERS) {
+    if (text.includes(m)) hits++;
+  }
+  return hits < 3;
+}
+
+function renderDetailPanel(item, idx) {
+  const parts = [];
+  const allKp = itemKeyPoints(item);
+  const body = bestContent(item);
+  const hasCleanBody = isUsableBody(body);
+  const extraKp = allKp.length > 2 ? renderKeyPointsList(allKp, allKp.length, 2) : '';
+
+  if (extraKp) {
+    parts.push(`<div>
+      <p class="text-xs font-medium text-stone-500 mb-0.5">补充要点 <span class="font-normal text-stone-400">（情报整理）</span></p>
+      ${extraKp}
+    </div>`);
+  }
+  if (hasCleanBody) {
+    const excerpt = body.length > 900 ? body.slice(0, 900) + '…' : body;
+    const total = body.length;
+    const hint = total > 900 ? `已节选前 900 字，全文约 ${total.toLocaleString()} 字` : `全文约 ${total.toLocaleString()} 字`;
+    parts.push(`<div>
+      <p class="text-xs font-medium text-stone-500 mb-0.5">原文摘录 <span class="font-normal text-stone-400">（未经改写）</span></p>
+      <p class="text-xs text-stone-400 mb-1.5">${hint} · 完整内容请点击标题</p>
+      <p class="text-sm text-stone-600 leading-relaxed whitespace-pre-wrap">${escapeHtml(excerpt)}</p>
+    </div>`);
+  }
+  const entities = parseTags(item.entities);
+  const tags = parseTags(item.tags);
+  if (entities.length || tags.length) {
+    parts.push(`<div>
+      <p class="text-xs font-medium text-stone-500 mb-1">相关标签</p>
+      <div class="flex flex-wrap gap-1">
+        ${entities.map(e => `<span class="text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded">${escapeHtml(e)}</span>`).join('')}
+        ${tags.map(t => `<span class="text-xs bg-surface-100 text-stone-500 px-1.5 py-0.5 rounded">#${escapeHtml(t)}</span>`).join('')}
+      </div>
+    </div>`);
+  }
+  if (!extraKp && !hasCleanBody && !entities.length && !tags.length) {
+    parts.push(`<p class="text-xs text-stone-400">卡片信息已涵盖核心内容，点击标题可阅读全文。</p>`);
+  }
+  parts.push(`<button type="button" onclick="toggleDetail(${idx})"
+    class="detail-collapse-btn text-xs text-brand-600 hover:text-brand-700 font-medium pt-1">收起 ▴</button>`);
+  return parts.join('');
+}
+
+function renderExpandToggle(idx) {
+  return `<button type="button" id="btn-${idx}" aria-expanded="false" onclick="toggleDetail(${idx})"
+    class="expand-toggle-btn mt-2 inline-flex items-center gap-1 text-xs text-stone-400 hover:text-brand-600 transition-colors">
+    <span class="btn-expand">展开更多 ▾</span>
+    <span class="btn-collapse hidden text-brand-600 font-medium">收起 ▴</span>
+  </button>`;
+}
+
+function estimateReading(body) {
+  if (!body) return null;
+  const chars = body.length;
+  const minutes = Math.max(1, Math.ceil(chars / 400));
+  return { chars, minutes };
+}
+
+function renderBodyText(item, isDeep) {
+  const body = bestContent(item);
+  if (!body) return '';
+  const limit = isDeep ? 800 : 200;
+  const text = body.length > limit ? body.slice(0, limit) + '…' : body;
+  const clamp = isDeep ? 'line-clamp-6' : 'line-clamp-2';
+  const hasFull = !!(item.full_text && item.full_text.length > 200);
+  const read = isDeep ? estimateReading(body) : null;
+  const badge = hasFull && isDeep
+    ? '<span class="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded ml-1">全文</span>'
+    : '';
+  const readBadge = read
+    ? `<span class="text-xs text-stone-400 ml-1">约 ${read.minutes} 分钟 · ${read.chars.toLocaleString()} 字</span>`
+    : '';
+  return `<p class="text-sm text-stone-600 mt-2 leading-relaxed ${clamp}">${escapeHtml(text)}${badge}${readBadge}</p>`;
+}
+
+function apiAuthHeaders() {
+  const token = localStorage.getItem('intel_api_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function submitFeedback(rawId, originalScore, delta, btnEl) {
+  const corrected = Math.min(10, Math.max(0, originalScore + delta));
+  const reason = delta > 0 ? '用户标记有用' : '用户标记无用';
+  try {
+    const resp = await fetch(
+      `/api/items/feedback?raw_id=${rawId}&domain=${DOMAIN}&corrected_score=${corrected}&reason=${encodeURIComponent(reason)}`,
+      { method: 'POST', headers: apiAuthHeaders() }
+    );
+    const data = await resp.json();
+    if (data.success) {
+      btnEl.closest('.feedback-bar')?.querySelectorAll('button').forEach(b => {
+        b.disabled = true;
+        b.classList.add('opacity-40');
+      });
+      btnEl.classList.remove('opacity-40');
+      btnEl.classList.add('text-brand-600');
+    }
+  } catch (e) {
+    console.error('反馈提交失败', e);
+  }
+}
+
+function renderFeedbackBar(item, idx) {
+  if (!item.raw_id) return '';
+  const score = item.score || 0;
+  return `<div class="feedback-bar flex items-center gap-1 mt-2">
+    <span class="text-xs text-stone-400 mr-1">有用吗？</span>
+    <button onclick="submitFeedback(${item.raw_id}, ${score}, 1, this)"
+      class="text-xs px-2 py-0.5 rounded border border-surface-200 hover:bg-green-50 hover:border-green-200 transition-colors"
+      title="有用">👍</button>
+    <button onclick="submitFeedback(${item.raw_id}, ${score}, -2, this)"
+      class="text-xs px-2 py-0.5 rounded border border-surface-200 hover:bg-red-50 hover:border-red-200 transition-colors"
+      title="无用">👎</button>
+  </div>`;
+}
+
 function renderItems(items) {
   const container = document.getElementById('items-container');
   if (!items.length) {
@@ -585,43 +903,44 @@ function renderItems(items) {
     const item = items[idx];
     const cat = item.category || 'uncategorized';
     const catLabel = catLabels[cat] || cat;
-    const catColor = CATEGORY_COLORS[cat] || 'bg-stone-100 text-stone-500';
+    const catColorCls = catColor(cat);
     const score = typeof item.score === 'number' ? item.score.toFixed(1) : (item.score || '0.0');
-    const tags = parseTags(item.tags);
-    const entities = parseTags(item.entities);
-    const keyPoints = parseTags(item.key_points);
     const displayName = item.source_name || item.source_display || item.source_id || '';
+    const isDeep = state.view === 'deep';
+    const lead = itemLead(item);
+    const kp = itemKeyPoints(item);
+    const takeaway = itemTakeaway(item);
+    const hasMore = kp.length > 2 || isUsableBody(bestContent(item));
+    const leadHtml = lead
+      ? `<p class="text-sm text-stone-700 mt-2.5 leading-relaxed line-clamp-3">${escapeHtml(lead)}</p>`
+      : '';
+    const kpHtml = !isDeep ? renderKeyPointsList(kp, 2) : '';
+    const takeawayHtml = takeaway
+      ? `<p class="text-sm text-stone-500 mt-2 leading-relaxed border-l-2 border-brand-200 pl-2.5">${escapeHtml(takeaway)}</p>`
+      : '';
 
     html += `<div class="item-card fade-in bg-white rounded-lg border border-surface-200 p-4" id="card-${idx}">
       <div class="flex gap-3">
         <div class="shrink-0 pt-0.5"><span class="score-badge ${scoreClass(item.score)}">${score}</span></div>
         <div class="min-w-0 flex-1">
           <a href="${item.url}" target="_blank" rel="noopener"
-             class="text-base font-medium text-stone-900 hover:text-brand-700 hover:underline leading-snug line-clamp-2">
-            ${escapeHtml(item.title_display || item.title)}
+             class="text-base font-semibold text-stone-900 hover:text-brand-700 hover:underline leading-snug line-clamp-2">
+            ${escapeHtml(itemHeadline(item))}
           </a>
           <div class="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span class="category-pill ${catColor}">${escapeHtml(catLabel)}</span>
+            <span class="category-pill ${catColorCls}">${escapeHtml(catLabel)}</span>
+            ${contentTypeBadge(item)}
             <span class="text-xs text-stone-400">${escapeHtml(displayName)}</span>
             ${item.published ? `<span class="text-xs text-stone-400">${formatDate(item.published)}</span>` : ''}
           </div>
-          ${item.summary ? `<p class="text-sm text-stone-600 mt-2 leading-relaxed line-clamp-2">${escapeHtml(item.summary)}</p>` : ''}
-          ${renderKeyPoints(keyPoints)}
-          ${item.reason ? `<p class="text-xs text-stone-500 mt-1.5 leading-relaxed">💡 ${escapeHtml(item.reason)}</p>` : ''}
-          ${entities.length || tags.length ? `<div class="mt-2 flex flex-wrap gap-1">
-            ${entities.map(e => `<span class="inline-flex items-center text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded">📌 ${escapeHtml(e)}</span>`).join('')}
-            ${tags.map(t => `<span class="inline-flex items-center text-xs bg-surface-100 text-stone-500 px-1.5 py-0.5 rounded">#${escapeHtml(t)}</span>`).join('')}
+          ${leadHtml}
+          ${kpHtml}
+          ${takeawayHtml}
+          ${hasMore ? `${renderExpandToggle(idx)}
+          <div id="detail-${idx}" class="hidden mt-2 pt-3 border-t border-surface-100 space-y-3">
+            ${renderDetailPanel(item, idx)}
           </div>` : ''}
-          <div id="detail-${idx}" class="hidden mt-2 pt-2 border-t border-surface-100">
-            ${item.summary ? `<p class="text-sm text-stone-600 leading-relaxed">${escapeHtml(item.summary)}</p>` : ''}
-            ${keyPoints.length ? `<ul class="mt-1.5 ml-3 space-y-0.5 list-disc list-outside">${keyPoints.map(p => `<li class="text-xs text-stone-600 leading-relaxed">${escapeHtml(String(p))}</li>`).join('')}</ul>` : ''}
-            ${item.reason ? `<p class="text-xs text-stone-500 mt-1.5 leading-relaxed">💡 ${escapeHtml(item.reason)}</p>` : ''}
-            <div class="flex items-center gap-2 mt-1.5 text-xs text-stone-400">
-              <span>类型：${escapeHtml(item.content_type || 'news')}</span>
-              <span>来源ID：${escapeHtml(item.source_id || '')}</span>
-            </div>
-          </div>
-          <button onclick="toggleDetail(${idx})" class="mt-1.5 text-xs text-stone-400 hover:text-brand-600 transition-colors" id="btn-${idx}">展开详情 ▾</button>
+          ${renderFeedbackBar(item, idx)}
         </div>
       </div>
     </div>`;
@@ -699,8 +1018,15 @@ function renderSources(items) {
     const active = state.sourceId === sid ? 'active' : '';
     const dimmed = cnt === 0 ? 'opacity-40' : '';
     const name = getSourceName(sid);
+    const health = sourceHealthMap[sid] || 'unknown';
+    const dotColor = HEALTH_COLORS[health] || HEALTH_COLORS['unknown'];
+    const healthLabel = HEALTH_LABELS[health] || health;
     html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setSource('${escapeHtml(sid)}')">
-      <span class="truncate" title="${escapeHtml(sid)}">${escapeHtml(name)}</span><span class="text-stone-400 text-xs shrink-0 ml-1">${cnt}</span></div>`;
+      <span class="truncate flex items-center gap-1.5" title="${escapeHtml(sid)} (${healthLabel})">
+        <span class="w-2 h-2 rounded-full shrink-0 ${dotColor}"></span>
+        ${escapeHtml(name)}
+      </span>
+      <span class="text-stone-400 text-xs shrink-0 ml-1">${cnt}</span></div>`;
   }
   list.innerHTML = html;
 }
@@ -771,23 +1097,30 @@ function setView(view) {
   state.category = null; state.sourceId = null; state.query = '';
   state.rangeMode = 'day';
   document.getElementById('search-input').value = '';
+  // 更新 URL 中的 view 参数，便于领域切换时保留当前视图
+  const params = new URLSearchParams(window.location.search);
+  params.set('view', view);
+  window.history.replaceState(null, '', '?' + params.toString());
   const config = VIEW_CONFIG[view];
+  const isHome = view === 'home';
   const isHealth = view === 'health';
+  const isTrends = view === 'trends';
+  const fullWidth = isHome || isHealth || isTrends;
 
-  // 系统健康视图隐藏整个侧边栏
-  document.getElementById('sidebar').style.display = isHealth ? 'none' : 'block';
+  // 全宽视图隐藏整个侧边栏
+  document.getElementById('sidebar').style.display = fullWidth ? 'none' : 'block';
 
   // 切换日期导航 / 时间范围的显示
   document.getElementById('date-nav').style.display = config.useDateNav ? 'block' : 'none';
   document.getElementById('time-filter').style.display = (config.useDateNav || isHealth) ? 'none' : 'block';
 
-  // 系统健康视图隐藏分类和信源筛选
-  document.getElementById('category-filter').style.display = isHealth ? 'none' : 'block';
-  document.getElementById('source-filter').style.display = isHealth ? 'none' : 'block';
+  // 全宽视图隐藏分类和信源筛选
+  document.getElementById('category-filter').style.display = fullWidth ? 'none' : 'block';
+  document.getElementById('source-filter').style.display = fullWidth ? 'none' : 'block';
 
-  // 系统健康视图隐藏搜索框和筛选标签
-  document.getElementById('search-box').style.display = isHealth ? 'none' : 'block';
-  document.getElementById('filter-bar').style.display = isHealth ? 'none' : 'flex';
+  // 全宽视图隐藏搜索框和筛选标签
+  document.getElementById('search-box').style.display = fullWidth ? 'none' : 'block';
+  document.getElementById('filter-bar').style.display = fullWidth ? 'none' : 'flex';
 
   // Tab 高亮
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -807,10 +1140,17 @@ function setDays(days) {
 function toggleDetail(idx) {
   const detail = document.getElementById('detail-' + idx);
   const btn = document.getElementById('btn-' + idx);
-  if (!detail || !btn) return;
-  const hidden = detail.classList.contains('hidden');
+  if (!detail) return;
+  const expanding = detail.classList.contains('hidden');
   detail.classList.toggle('hidden');
-  btn.textContent = hidden ? '收起 ▴' : '展开详情 ▾';
+  if (btn) {
+    btn.setAttribute('aria-expanded', expanding ? 'true' : 'false');
+    btn.querySelector('.btn-expand')?.classList.toggle('hidden', expanding);
+    btn.querySelector('.btn-collapse')?.classList.toggle('hidden', !expanding);
+  }
+  if (!expanding && btn) {
+    btn.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
 }
 
 function updateDaysButtons() {
@@ -840,11 +1180,247 @@ function clearFilters() {
   else loadView();
 }
 
+// ── 总览视图 ──
+
+async function loadHomeView() {
+  const container = document.getElementById('items-container');
+  container.innerHTML = '<div class="flex items-center justify-center py-20"><div class="skeleton h-32 w-full max-w-2xl"></div></div>';
+  try {
+    const data = await fetchJSON('/api/overview');
+    container.innerHTML = renderHomeView(data);
+  } catch (e) {
+    container.innerHTML = '<div class="text-center py-20"><p class="text-red-500">总览加载失败</p><button onclick="loadHomeView()" class="mt-3 px-4 py-1.5 text-sm bg-brand-600 text-white rounded-lg">重试</button></div>';
+  }
+}
+
+function renderHomeView(data) {
+  const cards = (data.domains || []).map(d => {
+    const port = d.port || 8900;
+    const narrative = d.narrative ? `<p class="text-sm text-stone-500 mt-2">${escapeHtml(d.narrative)}</p>` : '';
+    return `<div class="bg-white rounded-xl border border-surface-200 p-5 hover:shadow-md transition-shadow cursor-pointer"
+                 onclick="switchDomain('${escapeHtml(d.domain)}')">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-bold text-stone-900">${escapeHtml(d.name)}</h3>
+        <span class="text-xs text-stone-400">:${port}</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-surface-50 rounded-lg p-3 text-center">
+          <div class="text-2xl font-bold text-brand-700">${d.today_selected || 0}</div>
+          <div class="text-xs text-stone-500">今日精选</div>
+        </div>
+        <div class="bg-surface-50 rounded-lg p-3 text-center">
+          <div class="text-2xl font-bold text-stone-700">${(d.total_selected || 0).toLocaleString()}</div>
+          <div class="text-xs text-stone-500">累计精选</div>
+        </div>
+      </div>
+      ${narrative}
+      <div class="flex items-center justify-between mt-3 text-xs text-stone-400 flex-wrap gap-2">
+        <span>待评分 ${d.unscored_count || 0}</span>
+        <span>简报覆盖 ${d.briefing_coverage_pct ?? 0}%</span>
+        ${d.feedback_7d && d.feedback_7d.total > 0
+          ? `<span>反馈 👍${d.feedback_7d.upvotes} 👎${d.feedback_7d.downvotes}</span>`
+          : '<span class="text-amber-600">反馈不足，请 quality-review</span>'}
+        ${d.llm_cost_month_cny > 0 ? `<span>LLM ¥${d.llm_cost_month_cny}/月</span>` : ''}
+      </div>
+      <div class="mt-3 flex gap-2">
+        <a href="/?domain=${encodeURIComponent(d.domain)}&view=selected"
+           onclick="event.stopPropagation()"
+           class="text-xs px-3 py-1 bg-brand-600 text-white rounded-lg hover:bg-brand-700">进入日报</a>
+        <a href="/api/export?domain=${encodeURIComponent(d.domain)}&days=7&format=markdown"
+           onclick="event.stopPropagation()"
+           class="text-xs px-3 py-1 border border-surface-200 rounded-lg hover:bg-surface-50">导出 Markdown</a>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div class="fade-in">
+    <p class="text-sm text-stone-500 mb-4">${data.date || ''} · 双领域情报一览，点击卡片切换领域</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${cards}</div>
+  </div>`;
+}
+
+// ── 趋势视图 ──
+
+async function loadTrendsView() {
+  const container = document.getElementById('items-container');
+  container.innerHTML = '<div class="flex items-center justify-center py-20"><div class="flex flex-col items-center gap-2"><div class="skeleton h-4 w-48"></div><div class="skeleton h-4 w-32"></div></div></div>';
+  try {
+    const [trendsData, usageData] = await Promise.all([
+      fetchJSON(`/api/trends?domain=${DOMAIN}&days=90`),
+      fetchJSON(`/api/llm-usage?domain=${DOMAIN}&days=30`),
+    ]);
+    container.innerHTML = renderTrendsView(trendsData, usageData);
+  } catch (e) {
+    container.innerHTML = '<div class="text-center py-20"><p class="text-red-500 font-medium">趋势数据加载失败</p><button onclick="loadTrendsView()" class="mt-3 px-4 py-1.5 text-sm bg-brand-600 text-white rounded-lg hover:bg-brand-700">重试</button></div>';
+  }
+}
+
+function renderTrendsView(data, usageData) {
+  const weekly = (data.snapshot_weekly && data.snapshot_weekly.length)
+    ? data.snapshot_weekly : (data.weekly || []);
+  const monthly = data.monthly || [];
+  const catBreakdown = data.category_breakdown || [];
+  const catChanges = data.category_changes || [];
+  const narrative = data.narrative || '';
+  const usage = usageData || {};
+  const costCny = usage.estimated_cost_cny || 0;
+
+  // 周趋势柱状图
+  const maxWeekly = Math.max(...weekly.map(w => w.total_items), 1);
+  const weeklyBars = weekly.map(w => {
+    const h = Math.max(4, (w.total_items / maxWeekly) * 160);
+    const selPct = w.selected_items > 0 ? ((w.selected_items / w.total_items) * 100).toFixed(0) : '0';
+    const label = w.week_start ? formatDate(w.week_start) : w.week;
+    return `<div class="flex items-end gap-2" style="height:180px">
+      <div class="flex flex-col items-center justify-end h-full">
+        <div title="精选 ${w.selected_items}/${w.total_items}" class="w-8 rounded-t ${w.selected_items > 0 ? 'bg-brand-500' : 'bg-stone-200'}" style="height:${h}px"></div>
+        <div class="text-xs text-stone-400 mt-1 -rotate-45 origin-left whitespace-nowrap">${label}</div>
+      </div>
+      <div class="text-xs text-stone-400 mb-1">${w.avg_score}</div>
+    </div>`;
+  }).join('');
+
+  // 分类饼图（水平条形）
+  const maxCat = Math.max(...catBreakdown.map(c => c.cnt), 1);
+  const catBars = catBreakdown.slice(0, 10).map(c => {
+    const pct = (c.cnt / maxCat) * 100;
+    const name = catLabels[c.category] || c.category;
+    const color = catColor(c.category);
+    return `<div class="flex items-center gap-3 py-1.5">
+      <span class="w-24 text-sm text-stone-700 truncate">${name}</span>
+      <div class="flex-1 h-5 rounded bg-surface-100 overflow-hidden">
+        <div class="h-full rounded ${color.split(' ')[0]} transition-all" style="width:${pct}%"></div>
+      </div>
+      <span class="w-8 text-right text-sm text-stone-500">${c.cnt}</span>
+      <span class="w-10 text-right text-xs text-stone-400">${c.avg_score}</span>
+    </div>`;
+  }).join('');
+
+  // 月度表格
+  const monthlyRows = monthly.map(m => {
+    const selPct = m.selected_items > 0 ? ((m.selected_items / m.total_items) * 100).toFixed(0) : '0';
+    return `<tr class="border-b border-surface-100">
+      <td class="py-2 text-sm text-stone-700">${m.month}</td>
+      <td class="py-2 text-sm text-stone-500 text-right">${m.total_items}</td>
+      <td class="py-2 text-sm text-green-600 text-right font-medium">${m.selected_items}</td>
+      <td class="py-2 text-sm text-stone-400 text-right">${selPct}%</td>
+      <td class="py-2 text-sm text-stone-500 text-right">${m.avg_score}</td>
+    </tr>`;
+  }).join('');
+
+  const changeRows = catChanges.map(c => {
+    const name = catLabels[c.category] || c.category;
+    const up = c.change_pct > 0;
+    const color = up ? 'text-green-600' : 'text-red-600';
+    const arrow = up ? '↑' : '↓';
+    return `<div class="flex items-center justify-between py-2 border-b border-surface-100">
+      <span class="text-sm font-medium text-stone-800">${escapeHtml(name)}</span>
+      <span class="text-sm text-stone-500">${c.last_week} → ${c.this_week}</span>
+      <span class="text-sm font-medium ${color}">${arrow} ${Math.abs(c.change_pct)}%</span>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="space-y-8 fade-in">
+    ${narrative ? `<div class="bg-brand-50 border border-brand-100 rounded-lg p-4">
+      <p class="text-sm font-medium text-brand-800">📊 ${escapeHtml(narrative)}</p>
+    </div>` : ''}
+
+    ${changeRows ? `<div class="bg-white rounded-lg border border-surface-200 p-5">
+      <h3 class="text-base font-semibold text-stone-900 mb-3">分类异动（本周 vs 上周）</h3>
+      <div>${changeRows}</div>
+    </div>` : ''}
+
+    <!-- 周趋势 -->
+    <div class="bg-white rounded-lg border border-surface-200 p-5">
+      <h3 class="text-base font-semibold text-stone-900 mb-4">周评分趋势</h3>
+      ${weekly.length > 0
+        ? `<div class="flex items-end gap-1 overflow-x-auto pb-2">${weeklyBars}</div>`
+        : '<p class="text-sm text-stone-400 py-8 text-center">暂无周趋势数据</p>'}
+    </div>
+
+    <!-- 分类分布 -->
+    <div class="bg-white rounded-lg border border-surface-200 p-5">
+      <h3 class="text-base font-semibold text-stone-900 mb-4">分类分布（近 90 天）</h3>
+      ${catBars.length > 0
+        ? `<div class="space-y-1">${catBars}</div>`
+        : '<p class="text-sm text-stone-400 py-8 text-center">暂无分类数据</p>'}
+    </div>
+
+    <!-- LLM 用量 -->
+    <div class="bg-white rounded-lg border border-surface-200 p-5">
+      <h3 class="text-base font-semibold text-stone-900 mb-4">LLM 调用统计（近 30 天）</h3>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <div class="bg-surface-50 rounded-lg p-3 text-center">
+          <div class="text-2xl font-bold text-brand-700">${(usage.total_calls || 0).toLocaleString()}</div>
+          <div class="text-xs text-stone-500 mt-1">调用次数</div>
+        </div>
+        <div class="bg-surface-50 rounded-lg p-3 text-center">
+          <div class="text-lg font-bold text-stone-700">${((usage.total_input_tokens || 0) / 1000).toFixed(1)}K</div>
+          <div class="text-xs text-stone-500 mt-1">输入 Tokens</div>
+        </div>
+        <div class="bg-surface-50 rounded-lg p-3 text-center">
+          <div class="text-lg font-bold text-stone-700">${((usage.total_output_tokens || 0) / 1000).toFixed(1)}K</div>
+          <div class="text-xs text-stone-500 mt-1">输出 Tokens</div>
+        </div>
+        <div class="bg-surface-50 rounded-lg p-3 text-center">
+          <div class="text-lg font-bold text-stone-700">${(usage.total_items_scored || 0).toLocaleString()}</div>
+          <div class="text-xs text-stone-500 mt-1">评分条目</div>
+        </div>
+        ${costCny > 0 ? `<div class="bg-surface-50 rounded-lg p-3 text-center col-span-2 sm:col-span-4">
+          <div class="text-2xl font-bold text-brand-700">¥${costCny}</div>
+          <div class="text-xs text-stone-500 mt-1">估算费用（近 30 天）</div>
+        </div>` : ''}
+      </div>
+      ${usage.daily && usage.daily.length > 0 ? `
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead><tr class="border-b border-surface-200">
+            <th class="py-2 text-xs font-semibold text-stone-400 text-left">日期</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">调用</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">输入 Tokens</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">输出 Tokens</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">耗时</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">评分</th>
+          </tr></thead>
+          <tbody>${usage.daily.slice(-14).map(d => `
+            <tr class="border-b border-surface-100">
+              <td class="py-1.5 text-stone-700">${d.date}</td>
+              <td class="py-1.5 text-stone-500 text-right">${d.calls}</td>
+              <td class="py-1.5 text-stone-500 text-right">${((d.input_tokens || 0) / 1000).toFixed(1)}K</td>
+              <td class="py-1.5 text-stone-500 text-right">${((d.output_tokens || 0) / 1000).toFixed(1)}K</td>
+              <td class="py-1.5 text-stone-500 text-right">${d.duration_seconds || 0}s</td>
+              <td class="py-1.5 text-stone-500 text-right">${d.items_scored || 0}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : '<p class="text-sm text-stone-400 py-4 text-center">暂无 LLM 用量数据（运行 pipe 后生成）</p>'}
+    </div>
+
+    <!-- 月度明细 -->
+    <div class="bg-white rounded-lg border border-surface-200 p-5">
+      <h3 class="text-base font-semibold text-stone-900 mb-4">月度明细</h3>
+      ${monthlyRows.length > 0
+        ? `<table class="w-full">
+          <thead><tr class="border-b border-surface-200">
+            <th class="py-2 text-xs font-semibold text-stone-400 text-left">月份</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">总条目</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">精选</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">精选率</th>
+            <th class="py-2 text-xs font-semibold text-stone-400 text-right">均分</th>
+          </tr></thead>
+          <tbody>${monthlyRows}</tbody>
+        </table>`
+        : '<p class="text-sm text-stone-400 py-8 text-center">暂无月度数据</p>'}
+    </div>
+  </div>`;
+}
+
 // ── 工具函数 ──
 
 function escapeHtml(str) { if (!str) return ''; return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function parseTags(val) { if (!val) return []; if (Array.isArray(val)) return val; try { return JSON.parse(val); } catch { return []; } }
-function formatDate(iso) { if (!iso) return ''; const d = new Date(iso); return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function formatDate(iso) { if (!iso) return ''; const d = new Date(iso); return `${d.getUTCMonth()+1}/${d.getUTCDate()}`; }
 async function fetchJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
 
 let searchTimer;

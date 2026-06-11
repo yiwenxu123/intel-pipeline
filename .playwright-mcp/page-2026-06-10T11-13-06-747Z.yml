@@ -1,0 +1,48 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]: 银
+        - heading "银发产业情报" [level=1] [ref=e6]
+      - generic [ref=e7]:
+        - generic [ref=e8]:
+          - text: 采集
+          - strong [ref=e9]: "418"
+        - generic [ref=e10]: "|"
+        - generic [ref=e11]:
+          - text: 精选
+          - strong [ref=e12]: "41"
+        - generic [ref=e13]: "|"
+        - generic [ref=e14]:
+          - text: 精选率
+          - strong [ref=e15]: 9.8%
+    - generic [ref=e17]:
+      - button "日报" [ref=e18] [cursor=pointer]
+      - button "政策追踪" [ref=e19] [cursor=pointer]
+      - button "深度阅读" [ref=e20] [cursor=pointer]
+      - button "系统健康" [ref=e21] [cursor=pointer]
+  - generic [ref=e22]:
+    - complementary [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]:
+          - heading "日期" [level=3] [ref=e26]
+          - generic [ref=e27]:
+            - button "日" [ref=e28] [cursor=pointer]
+            - button "周" [ref=e29] [cursor=pointer]
+            - button "月" [ref=e30] [cursor=pointer]
+        - generic [ref=e32]:
+          - button "◀" [ref=e33] [cursor=pointer]
+          - generic "点击选择日期" [ref=e34] [cursor=pointer]: 2026-06-10
+          - button "▶" [disabled] [ref=e35]
+        - generic [ref=e36]: 9 条 · 智慧养老 2 · 养老金融 2 · 行业动态 3 · 政策法规 1 · 健康服务 1
+      - heading "分类" [level=3] [ref=e38]
+      - heading "信源" [level=3] [ref=e40]
+    - main [ref=e41]:
+      - generic [ref=e42]:
+        - generic [ref=e44]: 日报
+        - generic [ref=e45]:
+          - textbox "搜索情报..." [ref=e46]
+          - img [ref=e47]
+      - generic [ref=e50]:
+        - paragraph [ref=e51]: 数据加载失败
+        - button "重试" [ref=e52] [cursor=pointer]

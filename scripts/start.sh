@@ -27,10 +27,38 @@ NC='\033[0m'
 
 mkdir -p "$PID_DIR" "$LOG_DIR"
 
+# 后台守护启动（disown + 关闭 stdin，避免父 shell 退出时子进程被 SIGHUP 终止）
+daemon_start() {
+  local log_file=$1
+  shift
+  nohup "$@" >> "$log_file" 2>&1 </dev/null &
+  local pid=$!
+  disown "$pid" 2>/dev/null || true
+  echo "$pid"
+}
+
+# 领域是否暂停（与 engine.config.settings 一致）
+is_domain_paused() {
+  local domain=$1
+  cd "$PROJECT_DIR"
+  "$VENV_PYTHON" -c "
+from engine.config import settings
+import sys
+sys.exit(0 if settings.is_domain_paused('$domain') else 1)
+" 2>/dev/null
+}
+
 # 检查 venv
 if [ ! -f "$VENV_PYTHON" ]; then
   echo -e "${RED}❌ 找不到 Python 虚拟环境: $VENV_PYTHON${NC}"
   echo "请先运行: python3 -m venv .venv && source .venv/bin/activate && pip install -e ."
+  exit 1
+fi
+
+# 配置检查
+cd "$PROJECT_DIR"
+if ! "$VENV_PYTHON" -m engine.cli preflight 2>/dev/null; then
+  echo -e "${RED}❌ 启动前配置检查失败，请检查 .env 中 INTEL_LLM_*${NC}"
   exit 1
 fi
 
@@ -60,9 +88,8 @@ start_domain() {
 
   echo -n "  启动 $domain (端口 $port)... "
   cd "$PROJECT_DIR"
-  INTEL_API_PORT="$port" nohup "$VENV_PYTHON" -m engine.cli -d "$domain" api \
-    > "$log_file" 2>&1 &
-  local pid=$!
+  local pid
+  pid=$(daemon_start "$log_file" env INTEL_API_PORT="$port" "$VENV_PYTHON" -m engine.cli -d "$domain" api)
   echo "$pid" > "$pid_file"
 
   # 等待启动
@@ -92,9 +119,8 @@ start_scheduler() {
 
   echo -n "  启动调度器... "
   cd "$PROJECT_DIR"
-  nohup "$VENV_PYTHON" scripts/scheduler.py \
-    > "$log_file" 2>&1 &
-  local pid=$!
+  local pid
+  pid=$(daemon_start "$log_file" "$VENV_PYTHON" scripts/scheduler.py)
   echo "$pid" > "$pid_file"
 
   sleep 1
@@ -125,6 +151,10 @@ fi
 
 echo "📡 启动 API 服务："
 for domain in "${domains[@]}"; do
+  if is_domain_paused "$domain"; then
+    echo -e "  ${YELLOW}⏸️  $domain — 已暂停（INTEL_PAUSED_DOMAINS），跳过 API${NC}"
+    continue
+  fi
   port=$(get_port "$domain")
   if [ -n "$port" ]; then
     start_domain "$domain"
@@ -151,3 +181,4 @@ echo ""
 echo "管理命令："
 echo "  ./scripts/status.sh  — 查看状态"
 echo "  ./scripts/stop.sh    — 停止所有服务"
+echo "  ./scripts/install-launchagent.sh elderly-care  — 登录自启（API + 调度器）"

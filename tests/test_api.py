@@ -19,6 +19,7 @@ def client(tmp_path, monkeypatch):
     original_root = cfg.settings.project_root
     cfg.settings.db_path = str(tmp_path / "test.db")
     cfg.settings.project_root = tmp_path
+    cfg.settings.api_token = ""  # 集成测试默认关闭写鉴权（见 test_api_auth.py）
 
     # 创建最小领域配置
     domain_dir = tmp_path / "domains" / "test-domain"
@@ -100,6 +101,27 @@ def test_stats(client):
     data = r.json()
     assert data["total_fetched"] >= 2
     assert data["selected"] >= 1
+    assert "last_fetch_time" in data
+    assert "unscored_count" in data
+    assert "db_size_mb" in data
+    assert "unscored_warn_threshold" in data
+
+
+def test_items_include_full_text(client):
+    import engine.output.api as api_mod
+    s = api_mod.get_store()
+    raw = RawItem(source_id="s1", title="全文测试", url="https://example.com/full",
+                  content="摘要", published=datetime.now(), fetched_at=datetime.now(), lang="zh")
+    rid = s.save_raw(raw)
+    s.update_full_text(raw.url, "完整正文段落" * 20)
+    scored = ScoredItem(raw=raw, score=8.5, category="cat1", summary="摘要",
+                        content_type="analysis")
+    s.save_scored(rid, "test-domain", scored)
+
+    r = client.get("/api/items?domain=test-domain&mode=selected&min_score=6")
+    assert r.status_code == 200
+    item = next(i for i in r.json()["items"] if i["url"] == raw.url)
+    assert "完整正文" in item["full_text"]
 
 
 def test_items_selected(client):
@@ -138,6 +160,7 @@ def test_categories(client):
     cats = r.json()["categories"]
     assert len(cats) >= 1
     assert cats[0]["name"] == "分类一"
+    assert "color" in cats[0]
 
 
 def test_sources(client):
@@ -161,3 +184,50 @@ def test_rss(client):
     r = client.get("/rss/curated?domain=test-domain")
     assert r.status_code == 200
     assert "xml" in r.headers.get("content-type", "")
+
+
+def test_overview(client):
+    _seed_data(client)
+    r = client.get("/api/overview")
+    assert r.status_code == 200
+    data = r.json()
+    assert "domains" in data
+    assert isinstance(data["domains"], list)
+
+
+def test_export_markdown(client):
+    _seed_data(client)
+    r = client.get("/api/export?domain=test-domain&days=30&format=markdown")
+    assert r.status_code == 200
+    assert "精选情报导出" in r.text
+
+
+def test_trends_narrative(client):
+    _seed_data(client)
+    r = client.get("/api/trends?domain=test-domain&days=30")
+    assert r.status_code == 200
+    data = r.json()
+    assert "narrative" in data
+    assert "category_changes" in data
+
+
+def test_feedback_submit_and_stats(client):
+    _seed_data(client)
+    # 先查 items 找到 raw_id
+    r = client.get("/api/items?domain=test-domain&mode=all&min_score=0")
+    items = r.json()["items"]
+    target = next(i for i in items if i["score"] == 8.0)
+
+    # 提交反馈
+    r = client.post(f"/api/items/feedback?raw_id={target['raw_id']}&domain=test-domain&corrected_score=9.0&reason=偏低了")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["success"] is True
+    assert data["original_score"] == 8.0
+    assert data["corrected_score"] == 9.0
+
+    # 查反馈统计
+    r = client.get("/api/items/feedback-stats?domain=test-domain&days=30")
+    stats = r.json()
+    assert stats["total"] >= 1
+    assert stats["avg_delta"] == pytest.approx(1.0)

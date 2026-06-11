@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Optional
 
 from engine.config import settings
 from engine.store import Store
@@ -28,8 +26,15 @@ STOPWORDS = {
 
 def extract_keywords_from_text(text: str, min_length: int = 2, max_length: int = 8) -> list[str]:
     """从文本中提取关键词（简单分词 + 过滤）。"""
-    # 提取中文词组（2-8字）
-    zh_words = re.findall(r'[\u4e00-\u9fff]{2,8}', text)
+    # 提取中文词组：滑动窗口 2-4 字（避免非重叠匹配切分合成词）
+    zh_words = []
+    for length in range(min_length, min(5, max_length + 1)):
+        for i in range(len(text) - length + 1):
+            window = text[i:i + length]
+            if all('\u4e00' <= c <= '\u9fff' for c in window):
+                zh_words.append(window)
+    # 移除是更长词子串的短词（如 '人工' 是 '人工智能' 的子串）
+    zh_words = [w for w in zh_words if not any(w != lw and w in lw for lw in zh_words)]
     # 提取英文词组
     en_words = re.findall(r'[a-zA-Z]{3,}', text)
     # 合并并过滤

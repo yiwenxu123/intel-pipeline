@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 
 import httpx
@@ -73,7 +72,12 @@ def send_webhook(webhook_url: str, title: str, content: str) -> bool:
         return False
 
 
-def notify_report(domain_name: str, stats: dict, top_items: list[dict]) -> bool:
+def notify_report(
+    domain_name: str,
+    stats: dict,
+    top_items: list[dict],
+    report_extra: dict | None = None,
+) -> bool:
     """推送情报日报摘要。
 
     Args:
@@ -100,12 +104,29 @@ def notify_report(domain_name: str, stats: dict, top_items: list[dict]) -> bool:
         "",
     ]
 
+    extra_stats = (report_extra or {}).get("stats") or stats
+    cat_top3 = extra_stats.get("category_top3") or []
+    if cat_top3:
+        parts = [f"{c.get('category', '?')} {c.get('count', 0)}条" for c in cat_top3]
+        lines.append(f"**📂 分类 Top3**：{' · '.join(parts)}")
+        lines.append("")
+
+    top_ents = extra_stats.get("top_entities") or []
+    if top_ents:
+        lines.append(f"**📌 热点实体**：{' · '.join(top_ents[:5])}")
+        lines.append("")
+
     if top_items:
-        lines.append("**🔴 热门：**")
-        for i, item in enumerate(top_items[:5], 1):
+        lines.append("**🔴 今日精选：**")
+        for i, item in enumerate(top_items[:3], 1):
             score = item.get("score", 0)
-            item_title = item.get("title_display") or item.get("title", "")
-            lines.append(f"{i}. [{score:.1f}] {item_title}")
+            item_title = item.get("headline") or item.get("title_display") or item.get("title", "")
+            takeaway = item.get("takeaway") or item.get("reason") or ""
+            if takeaway:
+                lines.append(f"{i}. **[{score:.1f}] {item_title}**")
+                lines.append(f"   {takeaway}")
+            else:
+                lines.append(f"{i}. [{score:.1f}] {item_title}")
         lines.append("")
 
     from engine.config import settings as s
@@ -113,4 +134,77 @@ def notify_report(domain_name: str, stats: dict, top_items: list[dict]) -> bool:
     link = f"{host}/?domain={domain_name}&date={date}"
     lines.append(f"[查看今日情报 →]({link})")
 
+    return send_webhook(webhook_url, title, "\n".join(lines))
+
+
+def notify_pipe_alert(
+    domain_name: str,
+    *,
+    error: str | None = None,
+    fetch_errors: int = 0,
+    fetch_error_sources: list[str] | None = None,
+    duration_seconds: float = 0,
+    scored: int = 0,
+) -> bool:
+    """pipe 异常告警：阶段失败或采集失败信源过多时推送（不受 notify 开关影响）。"""
+    webhook_url = settings.notify_webhook
+    if not webhook_url:
+        return False
+
+    display_name = DOMAIN_NAMES.get(domain_name, domain_name)
+    title = f"⚠️ {display_name}情报管道告警"
+
+    lines = []
+    if error:
+        lines.append(f"**管道错误**：{error}")
+    if fetch_errors > 0:
+        lines.append(f"**采集失败**：{fetch_errors} 个信源")
+        sources = fetch_error_sources or []
+        if sources:
+            preview = "、".join(sources[:8])
+            if len(sources) > 8:
+                preview += f" 等 {len(sources)} 个"
+            lines.append(f"失败信源：{preview}")
+    lines.append(f"筛选 **{scored}** 条 | 耗时 **{duration_seconds}s**")
+    lines.append("")
+    lines.append("请检查 Dashboard 系统健康 Tab 或运行：")
+    lines.append(f"`python -m engine.cli -d {domain_name} evolve sources`")
+
+    return send_webhook(webhook_url, title, "\n".join(lines))
+
+
+def notify_unscored_backlog(domain_name: str, unscored_count: int, threshold: int) -> bool:
+    """待评分堆积告警。"""
+    webhook_url = settings.notify_webhook
+    if not webhook_url or unscored_count < threshold:
+        return False
+
+    display_name = DOMAIN_NAMES.get(domain_name, domain_name)
+    title = f"📋 {display_name}待评分堆积告警"
+    content = (
+        f"窗口内待评分条目 **{unscored_count}** 条（阈值 {threshold}）\n\n"
+        "建议操作：\n"
+        "1. 运行 `pipe` 消化积压（可调大 max_items）\n"
+        "2. 或缩小 `INTEL_SCORE_WINDOW_DAYS`\n"
+        "3. 检查 scheduler 是否正常运行"
+    )
+    return send_webhook(webhook_url, title, content)
+
+
+def notify_scoring_calibration(domain_name: str, calibrations: list[dict]) -> bool:
+    """评分校准建议推送（pipe 后自动触发）。"""
+    webhook_url = settings.notify_webhook
+    if not webhook_url or not calibrations:
+        return False
+
+    display_name = DOMAIN_NAMES.get(domain_name, domain_name)
+    title = f"📋 {display_name}评分校准建议"
+    lines = [f"共 **{len(calibrations)}** 条建议，下次评分将自动注入：", ""]
+    for i, cal in enumerate(calibrations[:5], 1):
+        instruction = cal.get("instruction") or cal.get("message") or str(cal)
+        lines.append(f"{i}. {instruction[:120]}")
+    if len(calibrations) > 5:
+        lines.append(f"... 另有 {len(calibrations) - 5} 条")
+    lines.append("")
+    lines.append(f"审阅：`domains/{domain_name}/scoring.md`")
     return send_webhook(webhook_url, title, "\n".join(lines))

@@ -92,11 +92,17 @@ class RawItem(BaseModel):
     source_id: str
     title: str
     url: str
-    content: str = ""  # 摘要或全文
+    content: str = ""  # RSS 摘要
+    full_text: Optional[str] = None  # 从原文提取的正文（精选条目）
     published: Optional[datetime] = None
     fetched_at: datetime = Field(default_factory=datetime.now)
     lang: str = "zh"
     extra: dict = Field(default_factory=dict)
+
+    @property
+    def display_text(self) -> str:
+        """返回最佳可用正文：优先 full_text，其次 content。"""
+        return self.full_text or self.content
 
 
 class ScoredItem(BaseModel):
@@ -113,6 +119,11 @@ class ScoredItem(BaseModel):
     source_display: str = ""  # 来源显示名
     title_display: str = ""  # 中文标题（外文翻译后）
     content_type: str = "news"  # news/policy/report/analysis/research/opinion
+    # 简报分层字段（精选后二次提炼）
+    headline: str = ""
+    lead: str = ""
+    takeaway: str = ""
+    insight_type: str = "fact"  # fact / opinion / mixed
 
 
 class DailyReport(BaseModel):
@@ -122,6 +133,7 @@ class DailyReport(BaseModel):
     domain: str
     items: list[ScoredItem]
     stats: dict = Field(default_factory=dict)  # 抓取数、精选数、精选率等
+    trend_text: str = ""  # 本周趋势一句话（如"本周精选 12 条，较上周 ↑ 20%"）
 
 
 class FetchError(BaseModel):
@@ -148,6 +160,9 @@ class FilterResult(BaseModel):
     scored_items: list[ScoredItem]
     pre_filter_total: int = 0
     pre_filter_passed: int = 0
+    pre_filter_skipped: int = 0
     scored_total: int = 0
     llm_calls: int = 0
     duration_seconds: float = 0.0
+    json_parse_failures: int = 0
+    retry_success: int = 0
