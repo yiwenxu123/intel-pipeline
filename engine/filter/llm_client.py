@@ -44,6 +44,7 @@ def get_client() -> OpenAI:
         _client = OpenAI(
             base_url=settings.llm_base_url,
             api_key=settings.llm_api_key,
+            timeout=120.0,  # 120 秒超时，防止 API 卡死阻塞流水线
         )
     return _client
 
