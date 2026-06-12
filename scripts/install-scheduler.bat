@@ -15,39 +15,33 @@ echo.
 
 REM ── 1. 中午 12:00 采集 ──
 schtasks /create /tn "IntelPipeline-NoonFetch" /sc daily /st 12:00 ^
-    /tr "cmd /c '%SCRIPT% noon' >> '%PROJECT_DIR%\data\scheduler.log' 2>&1" ^
-    /f /ru SYSTEM
+    /tr "%SCRIPT% noon" /f /ru SYSTEM
 echo [OK] 12:00 采集
 
 REM ── 2. 午夜 00:00 采集 ──
 schtasks /create /tn "IntelPipeline-MidnightFetch" /sc daily /st 00:00 ^
-    /tr "cmd /c '%SCRIPT% fetch' >> '%PROJECT_DIR%\data\scheduler.log' 2>&1" ^
-    /f /ru SYSTEM
+    /tr "%SCRIPT% fetch" /f /ru SYSTEM
 echo [OK] 00:00 采集
 
 REM ── 3. 00:30 筛选（凌晨采集后） ──
 schtasks /create /tn "IntelPipeline-MidnightFilter" /sc daily /st 00:30 ^
-    /tr "cmd /c '%SCRIPT% filter' >> '%PROJECT_DIR%\data\scheduler.log' 2>&1" ^
-    /f /ru SYSTEM
+    /tr "%SCRIPT% filter" /f /ru SYSTEM
 echo [OK] 00:30 筛选
 
 REM ── 4. 01:00 生成日报 ──
 schtasks /create /tn "IntelPipeline-DailyReport" /sc daily /st 01:00 ^
-    /tr "cmd /c '%SCRIPT% report' >> '%PROJECT_DIR%\data\scheduler.log' 2>&1" ^
-    /f /ru SYSTEM
+    /tr "%SCRIPT% report" /f /ru SYSTEM
 echo [OK] 01:00 日报
 
-REM ── 5. 开机自启 API ──
-schtasks /create /tn "IntelPipeline-API" /sc onstart ^
-    /tr "cmd /c '%SCRIPT% api' >> '%PROJECT_DIR%\data\api.log' 2>&1" ^
-    /f /ru SYSTEM
-echo [OK] API 开机自启
+REM ── 5. 登录后自动启动 API ──
+schtasks /create /tn "IntelPipeline-API-Login" /sc onlogon /delay 0000:02 ^
+    /tr "%SCRIPT% api" /f /ru yihong123
+echo [OK] API 登录自启
 
 echo.
 echo ========================================
 echo 所有定时任务已注册
 echo 查看状态: schtasks /query /tn "IntelPipeline-*"
-echo 查看日志: type "%PROJECT_DIR%\data\scheduler.log"
 echo ========================================
 
 pause
