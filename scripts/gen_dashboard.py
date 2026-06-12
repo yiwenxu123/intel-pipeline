@@ -1,43 +1,54 @@
-"""Generate dashboard HTML."""
+"""Generate dashboard HTML for elderly-care domain."""
 import json
 from engine.store import Store
 from pathlib import Path
+from datetime import datetime
 
 s = Store()
 items = s.get_selected('elderly-care', take=500, min_score=0)
 stats = s.get_stats('elderly-care')
 s.close()
 
-CAT_LABELS = {
+selected = [i for i in items if i.get('score', 0) >= 6.0]
+
+CAT = {
     'policy': '政策法规', 'industry': '行业动态', 'health_services': '健康服务',
     'elderly_tech': '智慧养老', 'finance_security': '养老金融', 'lifestyle': '养老生活',
     'risk': '风险预警', 'case_study': '案例与观点',
 }
 
 def esc(s):
-    return (s or '').replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
+    return (s or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
 
 cards = []
-for item in items:
-    score = item.get('score', 0)
-    cls = 'hot' if score >= 8 else 'warm'
-    title = esc(item.get('title_display') or item.get('title', ''))
-    url = item.get('url', '#')
-    cat = CAT_LABELS.get(item.get('category',''), item.get('category',''))
-    src = esc(item.get('source_display') or item.get('source_id', ''))
-    summary = esc(item.get('summary', ''))
-    reason = esc(item.get('reason', ''))
-    pts = item.get('key_points', []) or []
-    tags = item.get('tags', []) or []
-    entities = item.get('entities', []) or []
-    pub = (item.get('published','') or '')[:10]
+for it in items:
+    sc = it.get('score', 0)
+    cls = 'hot' if sc >= 8 else 'warm'
+    title = esc(it.get('title_display') or it.get('title', ''))
+    url = it.get('url', '#')
+    cat = CAT.get(it.get('category', ''), it.get('category', ''))
+    src = esc(it.get('source_display') or it.get('source_id', ''))
+    summary = esc(it.get('summary', ''))
+    reason = esc(it.get('reason', ''))
+    pts = it.get('key_points', []) or []
+    tags = it.get('tags', []) or []
+    ents = it.get('entities', []) or []
+    pub = (it.get('published', '') or '')[:10]
 
-    points_html = '<ul class="points">' + ''.join(f'<li>{esc(p)}</li>' for p in pts) + '</ul>' if pts else ''
-    tags_html = '<div class="tags">' + ''.join(f'<span class="entity">📌 {esc(e)}</span>' for e in entities) + ''.join(f'<span class="tag">#{esc(t)}</span>' for t in tags) + '</div>' if entities or tags else ''
+    pts_html = ''
+    if pts:
+        pts_html = '<ul class="points">' + ''.join(f'<li>{esc(p)}</li>' for p in pts) + '</ul>'
+
+    tags_html = ''
+    if ents or tags:
+        tags_html = '<div class="tags">' + ''.join(f'<span class="entity">📌 {esc(e)}</span>' for e in ents) + ''.join(f'<span class="tag">#{esc(t)}</span>' for t in tags) + '</div>'
+
+    summary_html = f'<p class="summary">{summary}</p>' if summary else ''
+    reason_html = f'<p class="reason">💡 {reason}</p>' if reason else ''
 
     cards.append(f'''<div class="card">
   <div class="card-header">
-    <div class="score {cls}">{score:.1f}</div>
+    <div class="score {cls}">{sc:.1f}</div>
     <div class="card-body">
       <div class="card-title"><a href="{url}" target="_blank">{title}</a></div>
       <div class="card-meta">
@@ -45,13 +56,15 @@ for item in items:
         <span class="pill pill-src">{src}</span>
         <span class="pill pill-src">{pub}</span>
       </div>
-      {'<p class="summary">' + summary + '</p>' if summary else ''}
-      {points_html}
-      {'<p class="reason">💡 ' + reason + '</p>' if reason else ''}
+      {summary_html}
+      {pts_html}
+      {reason_html}
       {tags_html}
     </div>
   </div>
 </div>''')
+
+date_str = stats.get('date', datetime.now().strftime('%Y-%m-%d'))
 
 html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
@@ -78,7 +91,7 @@ body{{font-family:-apple-system,sans-serif;background:#f5f5f4;color:#1c1917;padd
 .card-body{{flex:1;min-width:0}}
 .card-title{{font-size:15px;font-weight:600;line-height:1.4;margin-bottom:6px}}
 .card-title a{{color:#1c1917;text-decoration:none}}
-.card-title a:hover{{color:#a16207;text-decoration:underline}}
+.card-title a:hover{{color:#a16207}}
 .card-meta{{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}}
 .pill{{padding:1px 8px;border-radius:999px;font-size:11px;font-weight:500}}
 .pill-cat{{background:#fef9c3;color:#a16207}}
@@ -94,12 +107,12 @@ body{{font-family:-apple-system,sans-serif;background:#f5f5f4;color:#1c1917;padd
 <body>
 <div class="header">
   <h1>🏦 银发产业情报</h1>
-  <p>{stats.get('date', datetime.now().strftime('%Y-%m-%d'))} · Intel Pipeline</p>
+  <p>{date_str} · Intel Pipeline · {len(selected)} 条精选</p>
 </div>
 <div class="stats">
-  <div class="stat"><div class="num">{stats.get('total_fetched', 0)}</div><div class="label">采集</div></div>
+  <div class="stat"><div class="num">{stats.get("total_fetched", 0)}</div><div class="label">采集</div></div>
   <div class="stat"><div class="num">{len(items)}</div><div class="label">评分</div></div>
-  <div class="stat"><div class="num">{stats.get('selected', 0)}</div><div class="label">精选</div></div>
+  <div class="stat"><div class="num">{len(selected)}</div><div class="label">精选</div></div>
 </div>
 <div class="cards">
 {"".join(cards)}
@@ -109,6 +122,3 @@ body{{font-family:-apple-system,sans-serif;background:#f5f5f4;color:#1c1917;padd
 
 Path('data/dashboard-elderly-care.html').write_text(html, encoding='utf-8')
 print(f'Dashboard: {len(items)} items, {len(selected)} selected')
-selected = [i for i in items if i.get('score',0) >= 6.0]
-PYEOF
-# Fix: selected is used before defined, let me rewrite
