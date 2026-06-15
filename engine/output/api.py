@@ -699,5 +699,11 @@ def _xml_escape(s: str) -> str:
 
 def start_api():
     """启动 API 服务。"""
+    import logging
     import uvicorn
+
+    if not settings.api_token:
+        logging.getLogger(__name__).warning(
+            "INTEL_API_TOKEN 未配置，所有写操作无鉴权保护！建议在内网环境使用。"
+        )
     uvicorn.run(app, host=settings.api_host, port=settings.api_port)

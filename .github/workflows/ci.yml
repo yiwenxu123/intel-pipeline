@@ -13,9 +13,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: uv sync --dev
       - name: Ruff
-        run: ruff check engine/
+        run: uv run ruff check engine/
       - name: Pytest
-        run: pytest tests/ -q
+        run: uv run pytest tests/ -q

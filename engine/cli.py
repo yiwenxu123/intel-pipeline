@@ -78,11 +78,9 @@ def fetch(max_workers: int):
 def filter():
     """筛选：对窗口期内未评分条目做 LLM 筛选（边评边存），窗口天数由 INTEL_SCORE_WINDOW_DAYS 配置（默认 7）。"""
     import time
-    from datetime import datetime, timedelta, timezone
     from engine.config import settings
     from engine.domain import load_domain
     from engine.filter.runner import filter_and_score
-    from engine.models import RawItem
     from engine.store import Store
 
     domain = load_domain()
@@ -92,30 +90,11 @@ def filter():
     reset_usage()
 
     with Store() as store:
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=settings.score_window_days)).isoformat()
-        rows = store.conn.execute(
-            """SELECT r.* FROM raw_items r
-               WHERE r.published >= ?
-               AND r.id NOT IN (SELECT raw_id FROM scored_items WHERE domain = ?)
-               ORDER BY r.published DESC""",
-            (cutoff, domain.name),
-        ).fetchall()
+        items = store.get_unscored_items(domain.name, settings.score_window_days)
 
-        if not rows:
+        if not items:
             console.print(f"✅ 最近 {settings.score_window_days} 天内没有待筛选的条目")
             return
-
-        items = [
-            RawItem(
-                source_id=r["source_id"],
-                title=r["title"],
-                url=r["url"],
-                content=r["content"] or "",
-                lang=r["lang"] or "zh",
-                full_text=r["full_text"],
-            )
-            for r in rows
-        ]
 
         total_input = len(items)
         console.print(f"最近 {settings.score_window_days} 天待筛选：{total_input} 条")

@@ -91,13 +91,12 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> Fetch
                 item.published = verified_dates[item.url]
                 logger.info(f"日期验证补全 [{item.source_id}] {item.published.date()} {item.title[:30]}")
 
-    # ── 去重入库（无时间过滤） ──
+    # ── 去重入库（无时间过滤，单次查询完成去重+插入） ──
     new_items: list[RawItem] = []
     for item in all_raw:
-        if store.exists(item.url):
-            continue
-        store.save_raw(item)
-        new_items.append(item)
+        _, is_new = store.save_raw_if_new(item)
+        if is_new:
+            new_items.append(item)
 
     duration = time.time() - start_time
     sources_success = len(enabled_sources) - len(fetch_errors)

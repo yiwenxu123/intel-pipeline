@@ -5,6 +5,7 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import logging
+import threading
 
 from engine.config import settings
 from engine.domain import DomainConfig
@@ -18,21 +19,41 @@ SCORE_MAX_PARALLEL = 3
 
 logger = logging.getLogger(__name__)
 
-# 评分过程统计（每次 score_items 前 reset）
-_score_stats: dict[str, int] = {
-    "json_parse_failures": 0,
-    "retry_success": 0,
-    "batch_retries": 0,
-}
+
+class ScoreStats:
+    """线程安全的评分过程统计。"""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._stats: dict[str, int] = {
+            "json_parse_failures": 0,
+            "retry_success": 0,
+            "batch_retries": 0,
+        }
+
+    def reset(self):
+        with self._lock:
+            self._stats = {"json_parse_failures": 0, "retry_success": 0, "batch_retries": 0}
+
+    def increment(self, key: str, value: int = 1):
+        with self._lock:
+            self._stats[key] = self._stats.get(key, 0) + value
+
+    def get_stats(self) -> dict[str, int]:
+        with self._lock:
+            return dict(self._stats)
+
+
+# 模块级单例
+_score_stats = ScoreStats()
 
 
 def reset_score_stats() -> None:
-    global _score_stats
-    _score_stats = {"json_parse_failures": 0, "retry_success": 0, "batch_retries": 0}
+    _score_stats.reset()
 
 
 def get_score_stats() -> dict[str, int]:
-    return dict(_score_stats)
+    return _score_stats.get_stats()
 
 
 def pre_filter_items(
@@ -129,12 +150,12 @@ def _score_batch(
 
     results = _parse_json_array(response)
     if not results:
-        _score_stats["json_parse_failures"] += total_in_batch
+        _score_stats.increment("json_parse_failures", total_in_batch)
 
     # 解析结果不足时，逐条重试
     if 0 < len(results) < total_in_batch:
         missing_indices = [j for j in range(total_in_batch) if j >= len(results)]
-        _score_stats["batch_retries"] += 1
+        _score_stats.increment("batch_retries")
         logger.warning(
             f"评分结果不足：收到 {len(results)}/{total_in_batch} 条，逐条重试 {len(missing_indices)} 条"
         )
@@ -152,10 +173,10 @@ def _score_batch(
             )
             retry_results = _parse_json_array(retry_resp)
             if retry_results:
-                _score_stats["retry_success"] += 1
+                _score_stats.increment("retry_success")
                 results.append(retry_results[0])
             else:
-                _score_stats["json_parse_failures"] += 1
+                _score_stats.increment("json_parse_failures")
                 results.append({})
 
     scored: list[ScoredItem] = []

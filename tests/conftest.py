@@ -10,6 +10,28 @@ import pytest
 from engine.store import Store
 
 
+@pytest.fixture(autouse=True)
+def mock_llm(monkeypatch):
+    """Mock 所有 LLM 调用，防止测试意外产生 API 费用。"""
+    def _mock_chat(model, system, user, temperature=0.3):
+        return json.dumps([{
+            "score": 7.0,
+            "category": "test",
+            "tags": [],
+            "title": "测试标题",
+            "summary": "测试摘要",
+            "key_points": ["要点1"],
+            "reason": "测试理由",
+            "content_type": "news",
+            "headline": "测试简报标题",
+            "lead": "测试导语",
+            "takeaway": "测试要点",
+            "insight_type": "fact",
+        }])
+
+    monkeypatch.setattr("engine.filter.llm_client.chat", _mock_chat)
+
+
 @pytest.fixture
 def store(tmp_path):
     """创建使用临时数据库的 Store 实例。"""

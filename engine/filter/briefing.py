@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from engine.config import settings
 from engine.domain import DomainConfig
@@ -13,6 +14,9 @@ from engine.filter.llm_client import chat
 from engine.models import ScoredItem
 
 logger = logging.getLogger(__name__)
+
+# 简报提炼并行线程数
+BRIEFING_MAX_PARALLEL = 3
 
 _DEFAULT_BRIEFING_PROMPT = """你是情报简报编辑。将入选条目改写为 JSON：
 {"headline":"","lead":"","takeaway":"","facts":[],"insight_type":"fact","content_type":"news"}
@@ -94,8 +98,16 @@ def enrich_briefings(
         items[idx].raw = raw
 
     system = _briefing_prompt(domain)
-    for idx in selected_idx:
-        items[idx] = _brief_one(items[idx], system)
+
+    # 并行简报提炼
+    with ThreadPoolExecutor(max_workers=BRIEFING_MAX_PARALLEL) as pool:
+        futures = {pool.submit(_brief_one, items[idx], system): idx for idx in selected_idx}
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                items[idx] = future.result()
+            except Exception as e:
+                logger.warning(f"简报提炼失败 [{items[idx].raw.title[:30]}]: {e}")
 
     logger.info(f"简报提炼完成：{len(selected_idx)} 条精选")
     return items

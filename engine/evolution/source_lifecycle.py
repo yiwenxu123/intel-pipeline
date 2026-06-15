@@ -10,8 +10,9 @@
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime, timedelta, timezone
+
+from ruamel.yaml import YAML
 
 from engine.config import settings
 from engine.models import SourceType, SOURCE_TYPE_CONFIG
@@ -168,42 +169,59 @@ def detect_degradation(domain: str) -> list[dict]:
     return degraded
 
 
+def _get_yaml() -> YAML:
+    """获取配置好的 ruamel.yaml 实例（保留注释和格式）。"""
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    yaml.default_flow_style = False
+    yaml.allow_duplicate_keys = True
+    return yaml
+
+
+def _load_sources_yaml(yaml_path) -> dict | None:
+    """加载 sources.yaml 文件（保留注释和格式）。返回解析后的字典，失败返回 None。"""
+    if not yaml_path.exists():
+        return None
+    yaml = _get_yaml()
+    with open(yaml_path, "r", encoding="utf-8") as f:
+        return yaml.load(f)
+
+
+def _save_sources_yaml(yaml_path, data: dict):
+    """保存 sources.yaml 文件（保留注释和格式）。"""
+    yaml = _get_yaml()
+    with open(yaml_path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f)
+
+
 def apply_degradation(domain: str, degraded: list[dict]) -> list[str]:
     """将降级信源写入 YAML 配置（enabled: false）。返回被禁用的信源 ID 列表。"""
     if not degraded:
         return []
 
     yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
-    if not yaml_path.exists():
+    data = _load_sources_yaml(yaml_path)
+    if data is None:
         logger.error(f"sources.yaml 不存在: {yaml_path}")
         return []
 
-    content = yaml_path.read_text(encoding="utf-8")
     disabled_ids = []
+    degraded_ids = {item["source_id"] for item in degraded}
 
-    for item in degraded:
-        source_id = item["source_id"]
-        # 在 YAML 中查找该信源并添加/修改 enabled: false
-        # 匹配模式：找到 "- id: xxx" 块，在其中添加 enabled: false
-        pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
-        match = re.search(pattern, content)
-        if not match:
+    for source in data.get("sources", []):
+        source_id = source.get("id", "")
+        if source_id not in degraded_ids:
             continue
-
-        block = match.group(0)
-        # 检查是否已有 enabled 字段
-        if "enabled:" in block:
-            # 已经有 enabled 字段，跳过（可能是用户手动禁用的）
+        # 已有 enabled 字段则跳过（可能是用户手动设置的）
+        if "enabled" in source:
             continue
-
-        # 在 id 行之后插入 enabled: false
-        new_block = match.group(1) + f"    enabled: false  # auto-degraded on {datetime.now().strftime('%Y-%m-%d')}\n" + match.group(2)
-        content = content.replace(block, new_block)
+        source["enabled"] = False
+        source["_auto_degraded_at"] = datetime.now().strftime("%Y-%m-%d")
         disabled_ids.append(source_id)
-        logger.info(f"[{domain}] 自动降级信源: {source_id} (连续 {item['days_tracked']} 天产出率 {item['avg_yield']*100:.1f}%)")
+        logger.info(f"[{domain}] 自动降级信源: {source_id}")
 
     if disabled_ids:
-        yaml_path.write_text(content, encoding="utf-8")
+        _save_sources_yaml(yaml_path, data)
 
     return disabled_ids
 
@@ -211,119 +229,74 @@ def apply_degradation(domain: str, degraded: list[dict]) -> list[str]:
 def restore_source(domain: str, source_id: str) -> bool:
     """恢复被自动降级的信源（移除 auto-degraded 标记）。"""
     yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
-    if not yaml_path.exists():
+    data = _load_sources_yaml(yaml_path)
+    if data is None:
         return False
 
-    content = yaml_path.read_text(encoding="utf-8")
-    # 移除 auto-degraded 的 enabled: false 行
-    pattern = r'\n\s*enabled:\s*false\s*# auto-degraded.*\n'
-    # 只在对应 source_id 块中替换
-    source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
-    match = re.search(source_pattern, content)
-    if not match:
-        return False
-
-    block = match.group(0)
-    new_block = re.sub(pattern, '\n', block)
-    if new_block != block:
-        content = content.replace(block, new_block)
-        yaml_path.write_text(content, encoding="utf-8")
-        logger.info(f"[{domain}] 恢复信源: {source_id}")
-        return True
+    for source in data.get("sources", []):
+        if source.get("id") != source_id:
+            continue
+        # 只恢复自动降级的信源
+        if source.get("enabled") is False and "_auto_degraded_at" in source:
+            del source["enabled"]
+            del source["_auto_degraded_at"]
+            _save_sources_yaml(yaml_path, data)
+            logger.info(f"[{domain}] 恢复信源: {source_id}")
+            return True
     return False
 
 
 def confirm_source_status(domain: str, source_id: str) -> bool:
-    """人工确认信源状态（标记为已确认，不会被自动禁用）。
-
-    在 sources.yaml 中添加 confirmed: true 标记。
-    """
+    """人工确认信源状态（标记为已确认，不会被自动禁用）。"""
     yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
-    if not yaml_path.exists():
+    data = _load_sources_yaml(yaml_path)
+    if data is None:
         return False
 
-    content = yaml_path.read_text(encoding="utf-8")
-
-    # 查找信源块
-    source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
-    match = re.search(source_pattern, content)
-    if not match:
-        return False
-
-    block = match.group(0)
-
-    # 检查是否已有 confirmed 字段
-    if "confirmed:" in block:
-        # 已经有 confirmed 字段，更新为 true
-        new_block = re.sub(r'confirmed:\s*\w+', 'confirmed: true', block)
-    else:
-        # 在 id 行之后插入 confirmed: true
-        new_block = match.group(1) + f"    confirmed: true  # 人工确认于 {datetime.now().strftime('%Y-%m-%d')}\n" + match.group(2)
-
-    content = content.replace(block, new_block)
-    yaml_path.write_text(content, encoding="utf-8")
-    logger.info(f"[{domain}] 人工确认信源: {source_id}")
-    return True
+    for source in data.get("sources", []):
+        if source.get("id") != source_id:
+            continue
+        source["confirmed"] = True
+        _save_sources_yaml(yaml_path, data)
+        logger.info(f"[{domain}] 人工确认信源: {source_id}")
+        return True
+    return False
 
 
 def manual_disable_source(domain: str, source_id: str) -> bool:
     """手动禁用信源。"""
     yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
-    if not yaml_path.exists():
+    data = _load_sources_yaml(yaml_path)
+    if data is None:
         return False
 
-    content = yaml_path.read_text(encoding="utf-8")
-
-    # 查找信源块
-    source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
-    match = re.search(source_pattern, content)
-    if not match:
-        return False
-
-    block = match.group(0)
-
-    # 检查是否已有 enabled 字段
-    if "enabled:" in block:
-        # 已经有 enabled 字段，更新为 false
-        new_block = re.sub(r'enabled:\s*\w+', 'enabled: false', block)
-    else:
-        # 在 id 行之后插入 enabled: false
-        new_block = match.group(1) + f"    enabled: false  # 手动禁用于 {datetime.now().strftime('%Y-%m-%d')}\n" + match.group(2)
-
-    content = content.replace(block, new_block)
-    yaml_path.write_text(content, encoding="utf-8")
-    logger.info(f"[{domain}] 手动禁用信源: {source_id}")
-    return True
+    for source in data.get("sources", []):
+        if source.get("id") != source_id:
+            continue
+        source["enabled"] = False
+        _save_sources_yaml(yaml_path, data)
+        logger.info(f"[{domain}] 手动禁用信源: {source_id}")
+        return True
+    return False
 
 
 def manual_enable_source(domain: str, source_id: str) -> bool:
     """手动启用信源。"""
     yaml_path = settings.project_root / "domains" / domain / "sources.yaml"
-    if not yaml_path.exists():
+    data = _load_sources_yaml(yaml_path)
+    if data is None:
         return False
 
-    content = yaml_path.read_text(encoding="utf-8")
-
-    # 查找信源块
-    source_pattern = rf'(- id: {re.escape(source_id)}\n)((?:\s+\w+:.*\n)*)'
-    match = re.search(source_pattern, content)
-    if not match:
-        return False
-
-    block = match.group(0)
-
-    # 检查是否已有 enabled 字段
-    if "enabled:" in block:
-        # 已经有 enabled 字段，更新为 true
-        new_block = re.sub(r'enabled:\s*\w+', 'enabled: true', block)
-    else:
-        # 在 id 行之后插入 enabled: true
-        new_block = match.group(1) + f"    enabled: true  # 手动启用于 {datetime.now().strftime('%Y-%m-%d')}\n" + match.group(2)
-
-    content = content.replace(block, new_block)
-    yaml_path.write_text(content, encoding="utf-8")
-    logger.info(f"[{domain}] 手动启用信源: {source_id}")
-    return True
+    for source in data.get("sources", []):
+        if source.get("id") != source_id:
+            continue
+        source["enabled"] = True
+        # 如果是恢复自动降级的信源，也清除标记
+        source.pop("_auto_degraded_at", None)
+        _save_sources_yaml(yaml_path, data)
+        logger.info(f"[{domain}] 手动启用信源: {source_id}")
+        return True
+    return False
 
 
 def run_lifecycle_check(domain: str) -> dict:

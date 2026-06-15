@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -63,8 +64,10 @@ class Store:
             );
 
             CREATE INDEX IF NOT EXISTS idx_raw_url_hash ON raw_items(url_hash);
+            CREATE INDEX IF NOT EXISTS idx_raw_fetched_date ON raw_items(fetched_at);
             CREATE INDEX IF NOT EXISTS idx_scored_domain ON scored_items(domain);
             CREATE INDEX IF NOT EXISTS idx_scored_created ON scored_items(created_at);
+            CREATE INDEX IF NOT EXISTS idx_scored_domain_created ON scored_items(domain, created_at);
 
             CREATE TABLE IF NOT EXISTS source_metrics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -146,14 +149,12 @@ class Store:
 
     def exists(self, url: str) -> bool:
         """通过 URL 哈希判断是否已存在（去重）。"""
-        import hashlib
         h = hashlib.md5(url.encode()).hexdigest()
         row = self.conn.execute("SELECT 1 FROM raw_items WHERE url_hash = ?", (h,)).fetchone()
         return row is not None
 
     def save_raw(self, item: RawItem) -> int:
         """保存原始条目，返回 ID。如果已存在返回已有 ID。"""
-        import hashlib
         h = hashlib.md5(item.url.encode()).hexdigest()
         with self._write_lock:
             existing = self.conn.execute("SELECT id FROM raw_items WHERE url_hash = ?", (h,)).fetchone()
@@ -172,6 +173,26 @@ class Store:
             self.conn.commit()
             result = cur.lastrowid
             return result if result is not None else 0
+
+    def save_raw_if_new(self, item: RawItem) -> tuple[int, bool]:
+        """保存原始条目（去重），单次查询完成。返回 (id, is_new)。"""
+        h = hashlib.md5(item.url.encode()).hexdigest()
+        with self._write_lock:
+            existing = self.conn.execute("SELECT id FROM raw_items WHERE url_hash = ?", (h,)).fetchone()
+            if existing:
+                return existing["id"], False
+            cur = self.conn.execute(
+                """INSERT INTO raw_items (source_id, url_hash, title, url, content, published, fetched_at, lang, extra)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    item.source_id, h, item.title, item.url, item.content,
+                    item.published.isoformat() if item.published else None,
+                    item.fetched_at.isoformat(), item.lang,
+                    json.dumps(item.extra, ensure_ascii=False),
+                ),
+            )
+            self.conn.commit()
+            return cur.lastrowid or 0, True
 
     # ── Scored Items ──
 
@@ -226,6 +247,13 @@ class Store:
 
     # ── 查询 ──
 
+    # order_by 白名单，防止 SQL 注入
+    _VALID_ORDER_BY = frozenset({
+        "s.score DESC", "s.score ASC",
+        "s.created_at DESC", "s.created_at ASC",
+        "COALESCE(r.published, r.fetched_at) DESC",
+    })
+
     def _query_items(self, domain: str, min_score: float = 0.0,
                      since: Optional[str] = None, category: Optional[str] = None,
                      take: int = 50, published_since: Optional[str] = None,
@@ -236,6 +264,8 @@ class Store:
         Args:
             published_date: 按发布日期精确过滤（YYYY-MM-DD），优先级高于 published_since/since。
         """
+        if order_by not in self._VALID_ORDER_BY:
+            raise ValueError(f"Invalid order_by: {order_by}")
         sql = """
             SELECT s.*, r.title, r.url, r.content, r.full_text, r.published, r.source_id,
                    COALESCE(r.published, r.fetched_at) as effective_date
@@ -335,7 +365,6 @@ class Store:
         """获取各分类的条目数和平均分（按各自时间窗口）。"""
         result = []
         for cat_id, cat_days in cat_freshness.items():
-            from datetime import timedelta, timezone
             cutoff = datetime.now(timezone.utc) - timedelta(days=cat_days)
             rows = self.conn.execute(
                 """SELECT COUNT(*) as cnt, AVG(score) as avg_score
@@ -359,7 +388,6 @@ class Store:
 
     def get_unscored_count(self, domain: str, window_days: int = 7) -> int:
         """统计评分窗口内尚未评分的条目数。"""
-        from datetime import timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
         row = self.conn.execute(
             """SELECT COUNT(*) as c FROM raw_items r
@@ -373,9 +401,35 @@ class Store:
         ).fetchone()
         return row["c"] if row else 0
 
+    def get_unscored_items(self, domain: str, window_days: int = 7, limit: int = 50) -> list[RawItem]:
+        """获取窗口期内未评分的条目（含日期容错）。
+
+        统一 CLI 和 pipeline 的查询逻辑，避免不一致。
+        """
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
+        rows = self.conn.execute(
+            """SELECT r.* FROM raw_items r
+               WHERE (
+                   (r.published >= ? AND r.published >= '2020-01-01')
+                   OR (r.published IS NULL AND r.fetched_at >= ?)
+                   OR (r.published < '2020-01-01' AND r.fetched_at >= ?)
+               )
+               AND r.id NOT IN (SELECT raw_id FROM scored_items WHERE domain = ?)
+               ORDER BY COALESCE(r.published, r.fetched_at) DESC
+               LIMIT ?""",
+            (cutoff, cutoff, cutoff, domain, limit),
+        ).fetchall()
+        return [
+            RawItem(
+                source_id=r["source_id"], title=r["title"], url=r["url"],
+                content=r["content"] or "", lang=r["lang"] or "zh",
+                full_text=r["full_text"],
+            )
+            for r in rows
+        ]
+
     def get_sources_zero_selected(self, domain: str, days: int = 7) -> int:
         """统计近期采集≥5条但零精选的信源数。"""
-        from datetime import timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         row = self.conn.execute(
             """SELECT COUNT(*) as c FROM (
@@ -441,12 +495,15 @@ class Store:
             date: 按日期过滤（YYYY-MM-DD）。留空返回累计统计。
         """
         if date:
+            date_start = f"{date}T00:00:00"
+            date_end = f"{date}T23:59:59"
             total = self.conn.execute(
-                "SELECT COUNT(*) as c FROM raw_items WHERE fetched_at LIKE ?", (f"{date}%",)
+                "SELECT COUNT(*) as c FROM raw_items WHERE fetched_at >= ? AND fetched_at < ?",
+                (date_start, date_end),
             ).fetchone()["c"]
             selected = self.conn.execute(
-                "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at LIKE ? AND score >= 6.0",
-                (domain, f"{date}%"),
+                "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at >= ? AND created_at < ? AND score >= 6.0",
+                (domain, date_start, date_end),
             ).fetchone()["c"]
             return {"total_fetched": total, "selected": selected, "date": date}
 
@@ -463,7 +520,6 @@ class Store:
         ).fetchone()
         last_fetch_time = last_fetch_row["t"] if last_fetch_row else None
 
-        from engine.config import settings
         unscored_count = self.get_unscored_count(domain, settings.score_window_days)
         sources_zero_selected = self.get_sources_zero_selected(domain)
 
@@ -508,7 +564,6 @@ class Store:
             return cur.lastrowid or 0
 
     def get_feedback_stats(self, domain: str, days: int = 7) -> dict:
-        from datetime import timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         rows = self.conn.execute(
             """SELECT original_score, corrected_score,
@@ -528,7 +583,6 @@ class Store:
     # ── 全文提取 ──
 
     def update_full_text(self, url: str, full_text: str) -> bool:
-        import hashlib
         h = hashlib.md5(url.encode()).hexdigest()
         with self._write_lock:
             cur = self.conn.execute("UPDATE raw_items SET full_text = ? WHERE url_hash = ?", (full_text, h))
@@ -551,7 +605,6 @@ class Store:
             return cur.lastrowid or 0
 
     def _estimate_llm_cost_cny(self, input_tokens: int, output_tokens: int) -> float:
-        from engine.config import settings
         cost = (
             input_tokens / 1_000_000 * settings.llm_cost_per_1m_input
             + output_tokens / 1_000_000 * settings.llm_cost_per_1m_output
@@ -588,7 +641,6 @@ class Store:
             self.conn.commit()
 
     def get_daily_stats_series(self, domain: str, days: int = 30) -> list[dict]:
-        from datetime import timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
         rows = self.conn.execute(
             """SELECT date, fetched, scored, selected, category_json
@@ -608,8 +660,6 @@ class Store:
 
     def get_change_narrative(self, domain: str) -> dict:
         """本周 vs 上周变化叙事 + 分类异动。"""
-        from datetime import timedelta, timezone
-
         today = datetime.now(timezone.utc).date()
         this_week_start = (today - timedelta(days=today.weekday())).isoformat()
         last_week_start = (today - timedelta(days=today.weekday() + 7)).isoformat()
@@ -684,7 +734,6 @@ class Store:
         }
 
     def get_llm_usage(self, domain: str, days: int = 30) -> dict:
-        from datetime import timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         rows = self.conn.execute(
             """SELECT * FROM llm_usage WHERE domain = ? AND created_at >= ?
@@ -737,7 +786,6 @@ class Store:
     # ── 趋势统计 ──
 
     def get_trends(self, domain: str, days: int = 30) -> dict:
-        from datetime import timedelta, timezone
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
         weekly = self.conn.execute(

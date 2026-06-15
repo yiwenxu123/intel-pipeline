@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # LLM 配置
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
-    llm_pre_filter_model: str = "gpt-4o-mini"  # 已废弃，保留兼容旧 .env
+    llm_pre_filter_model: str = "gpt-4o-mini"  # DEPRECATED: 保留兼容旧 .env
     llm_scoring_model: str = "gpt-4o"  # 评分 + 简报提炼
 
     # 当前加载的领域
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # 待评分堆积预警：窗口内未评分条目超过此数时在日志/Dashboard 标红
     unscored_warn_threshold: int = 100
 
-    # LLM 预筛已废弃（保留兼容）；设为极大值等同关闭
+    # DEPRECATED: LLM 预筛已废弃；设为极大值等同关闭
     pre_filter_backlog_threshold: int = 999999
 
     # 规则预筛：零成本去噪，被拒条目 score=0 入库

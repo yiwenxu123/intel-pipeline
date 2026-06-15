@@ -28,3 +28,7 @@ data/
 
 # Logs
 *.log
+
+# Playwright MCP snapshots
+*-snapshot.yml
+*.screenshot.png
