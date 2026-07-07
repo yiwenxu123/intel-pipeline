@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>银发产业情报</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        brand: { 50:'#fefce8', 100:'#fef9c3', 500:'#eab308', 600:'#ca8a04', 700:'#a16207' },
+        surface: { 50:'#fafaf9', 100:'#f5f5f4', 200:'#e7e5e4', 800:'#292524', 900:'#1c1917' }
+      }
+    }
+  }
+}
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+body { font-family: 'Noto Sans SC', 'Inter', system-ui, sans-serif; }
+.score-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 2.5rem; height: 1.75rem; border-radius: 0.375rem; font-weight: 700; font-size: 0.875rem; }
+.score-hot { background: #dc2626; color: #fff; }
+.score-warm { background: #f59e0b; color: #fff; }
+.score-cool { background: #6b7280; color: #fff; }
+.category-pill { display: inline-flex; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+.item-card { transition: all 0.15s ease; }
+.item-card:hover { background: #fafaf9; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.sidebar-item { cursor: pointer; transition: all 0.1s ease; }
+.sidebar-item:hover { background: #f5f5f4; }
+.sidebar-item.active { background: #fef9c3; color: #a16207; font-weight: 600; }
+.tab-btn { cursor: pointer; transition: all 0.15s ease; }
+.tab-btn.active { color: #a16207; border-color: #a16207; }
+.tab-btn:not(.active) { color: #78716c; border-color: transparent; }
+.tab-btn:hover:not(.active) { color: #44403c; }
+.fade-in { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body class="bg-surface-50 text-stone-800">
+
+<!-- 顶部导航 -->
+<header class="bg-white border-b border-surface-200 sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-bold text-sm">银</div>
+      <h1 id="domain-title" class="text-lg font-bold text-stone-900">银发产业情报</h1>
+    </div>
+    <div id="stats-bar" class="flex items-center gap-4 text-sm text-stone-500"></div>
+  </div>
+  <!-- 视图 Tab -->
+  <div class="max-w-7xl mx-auto px-4">
+    <div class="flex gap-6 border-b border-surface-200">
+      <button class="tab-btn active text-sm font-medium py-2.5 border-b-2" onclick="setView('selected')" id="tab-selected">
+        📰 精选
+      </button>
+      <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('policy')" id="tab-policy">
+        📋 政策追踪
+      </button>
+      <button class="tab-btn text-sm font-medium py-2.5 border-b-2" onclick="setView('deep')" id="tab-deep">
+        📚 深度阅读
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="max-w-7xl mx-auto px-4 py-4 flex gap-6">
+
+  <!-- 左侧边栏 -->
+  <aside class="w-56 shrink-0">
+    <!-- 时间范围（仅精选视图） -->
+    <div id="time-filter" class="mb-4">
+      <h3 class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-2">时间范围</h3>
+      <div class="flex bg-surface-100 rounded-lg p-0.5 gap-0.5">
+        <button onclick="setDays(1)" class="days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500" data-days="1">24h</button>
+        <button onclick="setDays(3)" class="days-btn text-xs px-2 py-1 rounded-md font-medium bg-white shadow-sm text-brand-700" data-days="3">3d</button>
+        <button onclick="setDays(7)" class="days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500" data-days="7">7d</button>
+        <button onclick="setDays(30)" class="days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500" data-days="30">30d</button>
+      </div>
+    </div>
+
+    <!-- 分类列表 -->
+    <div class="mb-6">
+      <h3 class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-2">分类</h3>
+      <div id="category-list" class="space-y-0.5"></div>
+    </div>
+
+    <!-- 信源列表 -->
+    <div>
+      <h3 class="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-2 px-2">信源</h3>
+      <div id="source-list" class="space-y-0.5"></div>
+    </div>
+  </aside>
+
+  <!-- 主内容区 -->
+  <main class="flex-1 min-w-0">
+    <!-- 搜索 + 筛选状态 -->
+    <div class="mb-3 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-sm text-stone-500">
+        <span id="filter-label">精选情报</span>
+        <span id="filter-count" class="text-stone-400"></span>
+        <button id="clear-filter" onclick="clearFilters()" class="hidden text-xs text-brand-600 hover:underline ml-2">清除筛选</button>
+      </div>
+      <div class="relative">
+        <input id="search-input" type="text" placeholder="搜索情报..."
+               class="w-56 h-8 px-3 pr-8 rounded-lg border border-surface-200 bg-surface-50 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+        <svg class="absolute right-2.5 top-1.5 w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 条目列表 -->
+    <div id="items-container" class="space-y-2">
+      <div class="text-center text-stone-400 py-20">加载中...</div>
+    </div>
+  </main>
+</div>
+
+<script>
+const CATEGORY_LABELS = {
+  policy: '政策法规', industry: '行业动态', health_services: '健康服务',
+  elderly_tech: '智慧养老', finance_security: '养老金融', lifestyle: '养老生活',
+  risk: '风险预警', case_study: '案例与观点', uncategorized: '未分类',
+};
+const CATEGORY_COLORS = {
+  policy: 'bg-red-50 text-red-700', industry: 'bg-blue-50 text-blue-700',
+  investment: 'bg-green-50 text-green-700', finance: 'bg-purple-50 text-purple-700',
+  tech_transfer: 'bg-cyan-50 text-cyan-700', diplomacy: 'bg-amber-50 text-amber-700',
+  elderly_tech: 'bg-cyan-50 text-cyan-700', health_services: 'bg-green-50 text-green-700',
+  finance_security: 'bg-purple-50 text-purple-700', lifestyle: 'bg-pink-50 text-pink-700',
+  risk: 'bg-orange-50 text-orange-700', case_study: 'bg-stone-100 text-stone-600',
+  uncategorized: 'bg-stone-100 text-stone-500',
+};
+
+let state = {
+  view: 'selected',  // selected | policy | deep
+  days: 3,
+  category: null,
+  sourceId: null,
+  query: '',
+};
+
+// ── 视图配置 ──
+const VIEW_CONFIG = {
+  selected: {
+    label: '精选情报',
+    defaultDays: 3,
+    categories: null,  // all
+    minScore: 6.0,
+    showTimeFilter: true,
+  },
+  policy: {
+    label: '政策追踪',
+    defaultDays: 30,
+    categories: ['policy'],
+    minScore: 6.0,
+    showTimeFilter: false,
+  },
+  deep: {
+    label: '深度阅读',
+    defaultDays: 0,  // no limit
+    categories: null,
+    minScore: 6.0,
+    showTimeFilter: false,
+    // 深度阅读：只显示 report/analysis/research 类型
+    contentTypes: ['report', 'analysis', 'research'],
+  },
+};
+
+// ── 初始化 ──
+async function init() {
+  const D = window.__DATA;
+  if (D && D.domain_name) {
+    document.getElementById('domain-title').textContent = D.domain_name;
+    document.title = D.domain_name;
+  }
+  await loadStats();
+  loadView();
+}
+
+// ── 视图切换 ──
+function setView(view) {
+  state.view = view;
+  state.category = null;
+  state.sourceId = null;
+  state.query = '';
+  document.getElementById('search-input').value = '';
+
+  const config = VIEW_CONFIG[view];
+  state.days = config.defaultDays;
+
+  // 更新 Tab 高亮
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById('tab-' + view).classList.add('active');
+
+  // 时间过滤器可见性
+  document.getElementById('time-filter').style.display = config.showTimeFilter ? 'block' : 'none';
+
+  loadView();
+}
+
+function setDays(days) {
+  state.days = days;
+  document.querySelectorAll('.days-btn').forEach(btn => {
+    btn.className = btn.dataset.days == days
+      ? 'days-btn text-xs px-2 py-1 rounded-md font-medium bg-white shadow-sm text-brand-700'
+      : 'days-btn text-xs px-2 py-1 rounded-md font-medium text-stone-500';
+  });
+  loadView();
+}
+
+function setCategory(cat) {
+  state.category = cat;
+  loadView();
+}
+
+function setSource(src) {
+  state.sourceId = src;
+  loadView();
+}
+
+function clearFilters() {
+  state.category = null;
+  state.sourceId = null;
+  state.query = '';
+  document.getElementById('search-input').value = '';
+  loadView();
+}
+
+// ── 数据加载 ──
+function loadView() {
+  const D = window.__DATA;
+  if (!D) return;
+
+  const config = VIEW_CONFIG[state.view];
+  let items = [...D.items];
+
+  // 1. 分数过滤
+  const minScore = config.minScore;
+  items = items.filter(i => i.score >= minScore);
+
+  // 2. 内容类型过滤（深度阅读只看 report/analysis/research）
+  if (config.contentTypes) {
+    items = items.filter(i => config.contentTypes.includes(i.content_type));
+  }
+
+  // 2. 分类过滤（政策追踪只看 policy）
+  if (config.categories) {
+    items = items.filter(i => config.categories.includes(i.category));
+  }
+
+  // 3. 时间过滤
+  if (state.days > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - state.days);
+    items = items.filter(i => {
+      if (!i.published) return false;
+      return new Date(i.published) >= cutoff;
+    });
+  }
+
+  // 4. 用户筛选
+  if (state.category) items = items.filter(i => i.category === state.category);
+  if (state.sourceId) items = items.filter(i => i.source_id === state.sourceId);
+  if (state.query) {
+    const q = state.query.toLowerCase();
+    items = items.filter(i => (i.title + (i.summary||'')).toLowerCase().includes(q));
+  }
+
+  // 5. 排序
+  items.sort((a, b) => b.score - a.score);
+
+  renderItems(items);
+  updateFilterBar(items.length, config);
+  loadCategories(items);
+  loadSources(items);
+}
+
+async function loadStats() {
+  const D = window.__DATA;
+  if (!D || !D.stats) return;
+  const bar = document.getElementById('stats-bar');
+  bar.innerHTML = `
+    <span>采集 <strong>${D.stats.total_fetched || 0}</strong></span>
+    <span class="text-stone-300">|</span>
+    <span>精选 <strong class="text-brand-700">${D.stats.selected || 0}</strong></span>
+  `;
+}
+
+// ── 渲染 ──
+function renderItems(items) {
+  const container = document.getElementById('items-container');
+  if (!items.length) {
+    container.innerHTML = '<div class="text-center text-stone-400 py-20">当前视图暂无数据</div>';
+    return;
+  }
+
+  let html = '';
+  for (const item of items) {
+    const cat = item.category || 'uncategorized';
+    const catLabel = CATEGORY_LABELS[cat] || cat;
+    const catColor = CATEGORY_COLORS[cat] || 'bg-stone-100 text-stone-500';
+    const score = typeof item.score === 'number' ? item.score.toFixed(1) : item.score;
+    const tags = parseTags(item.tags);
+    const entities = parseTags(item.entities);
+    const keyPoints = parseTags(item.key_points);
+
+    html += `<div class="item-card fade-in bg-white rounded-lg border border-surface-200 p-4">
+      <div class="flex gap-3">
+        <div class="shrink-0 pt-0.5">
+          <span class="score-badge ${scoreClass(item.score)}">${score}</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <a href="${item.url}" target="_blank" rel="noopener"
+             class="text-base font-medium text-stone-900 hover:text-brand-700 hover:underline leading-snug line-clamp-2">
+            ${escapeHtml(item.title_display || item.title)}
+          </a>
+          <div class="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span class="category-pill ${catColor}">${catLabel}</span>
+            <span class="text-xs text-stone-400">${item.source_display || item.source_id}</span>
+            ${item.published ? `<span class="text-xs text-stone-400">${formatDate(item.published)}</span>` : ''}
+          </div>
+          ${item.summary ? `<p class="text-sm text-stone-600 mt-2 leading-relaxed line-clamp-2">${escapeHtml(item.summary)}</p>` : ''}
+          ${renderKeyPoints(keyPoints)}
+          ${item.reason ? `<p class="text-xs text-stone-500 mt-1.5 leading-relaxed">💡 ${escapeHtml(item.reason)}</p>` : ''}
+          ${tags.length || entities.length ? `
+          <div class="mt-2 flex flex-wrap gap-1">
+            ${entities.map(e => `<span class="inline-flex items-center text-xs bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded">📌 ${escapeHtml(e)}</span>`).join('')}
+            ${tags.map(t => `<span class="inline-flex items-center text-xs bg-surface-100 text-stone-500 px-1.5 py-0.5 rounded">#${escapeHtml(t)}</span>`).join('')}
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html;
+}
+
+function renderKeyPoints(points) {
+  if (!points) return '';
+  let arr = points;
+  if (typeof points === 'string') {
+    try { arr = JSON.parse(points); } catch { return ''; }
+  }
+  if (!Array.isArray(arr) || !arr.length) return '';
+  const items = arr.map(p => `<li class="text-xs text-stone-600 leading-relaxed">${escapeHtml(String(p))}</li>`).join('');
+  return `<ul class="mt-1.5 ml-3 space-y-0.5 list-disc list-outside">${items}</ul>`;
+}
+
+function scoreClass(score) {
+  if (score >= 8) return 'score-hot';
+  if (score >= 6.5) return 'score-warm';
+  return 'score-cool';
+}
+
+function updateFilterBar(count, config) {
+  const label = document.getElementById('filter-label');
+  const countEl = document.getElementById('filter-count');
+  const clearBtn = document.getElementById('clear-filter');
+
+  let text = config.label;
+  if (state.category) text += ` · ${CATEGORY_LABELS[state.category] || state.category}`;
+  if (state.sourceId) text += ` · ${state.sourceId}`;
+  if (state.query) text += ` · "${state.query}"`;
+
+  const daysMap = {1:'· 24h内', 3:'· 3天内', 7:'· 7天内', 30:'· 30天内', 0:'· 不限时间'};
+  if (config.showTimeFilter) text += ` ${daysMap[state.days] || ''}`;
+
+  label.textContent = text;
+  countEl.textContent = `(${count} 条)`;
+  clearBtn.classList.toggle('hidden', !state.category && !state.sourceId && !state.query);
+}
+
+function loadCategories(items) {
+  // 统计当前视图中各分类的数量
+  const counts = {};
+  for (const item of items) {
+    const cat = item.category || 'uncategorized';
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+
+  // 始终显示所有分类（从全量数据）
+  const D = window.__DATA;
+  const allItems = (D && D.items) ? D.items : items;
+  const allCats = {};
+  for (const item of allItems) {
+    const cat = item.category || 'uncategorized';
+    if (!allCats[cat]) allCats[cat] = 0;
+  }
+
+  const sorted = Object.keys(allCats).sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+  const total = items.length;
+  const list = document.getElementById('category-list');
+
+  let html = `<div class="sidebar-item ${!state.category ? 'active' : ''} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setCategory(null)">
+    <span>全部</span><span class="text-stone-400 text-xs">${total}</span>
+  </div>`;
+  for (const cat of sorted) {
+    const label = CATEGORY_LABELS[cat] || cat;
+    const active = state.category === cat ? 'active' : '';
+    const cnt = counts[cat] || 0;
+    const dimmed = cnt === 0 ? 'opacity-40' : '';
+    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setCategory('${cat}')">
+      <span>${label}</span><span class="text-stone-400 text-xs">${cnt}</span>
+    </div>`;
+  }
+  list.innerHTML = html;
+}
+
+function loadSources(items) {
+  // 统计当前视图中各信源的数量
+  const counts = {};
+  for (const item of items) {
+    counts[item.source_id] = (counts[item.source_id] || 0) + 1;
+  }
+
+  // 始终显示所有信源（从全量数据），不只是当前筛选后的
+  const D = window.__DATA;
+  const allItems = (D && D.items) ? D.items : items;
+  const allSources = {};
+  for (const item of allItems) {
+    if (!allSources[item.source_id]) allSources[item.source_id] = 0;
+  }
+
+  // 合并：所有信源 + 当前视图的计数
+  const sorted = Object.keys(allSources).sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+  const list = document.getElementById('source-list');
+  const total = items.length;
+  let html = `<div class="sidebar-item ${!state.sourceId ? 'active' : ''} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setSource(null)">
+    <span>全部</span><span class="text-stone-400 text-xs">${total}</span>
+  </div>`;
+  for (const sid of sorted) {
+    const cnt = counts[sid] || 0;
+    const active = state.sourceId === sid ? 'active' : '';
+    const dimmed = cnt === 0 ? 'opacity-40' : '';
+    html += `<div class="sidebar-item ${active} ${dimmed} rounded-md px-2 py-1.5 text-sm flex justify-between" onclick="setSource('${sid}')">
+      <span class="truncate">${sid}</span><span class="text-stone-400 text-xs shrink-0 ml-1">${cnt}</span>
+    </div>`;
+  }
+  list.innerHTML = html;
+}
+
+// ── 工具函数 ──
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function parseTags(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  try { return JSON.parse(val); } catch { return []; }
+}
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// 搜索防抖
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    state.query = e.target.value.trim();
+    loadView();
+  }, 300);
+});
+
+init();
+</script>
+</body>
+</html>
