@@ -599,6 +599,39 @@ def evolve_all(days: int):
     path3 = save_keyword_report(domain, days)
     console.print(f"  ✅ 关键词分析: {path3}")
 
+    # 自动应用进化建议
+    applied = []
+    try:
+        from engine.evolution.keyword_expander import suggest_new_keywords
+        from pathlib import Path
+        import yaml
+        suggestions = suggest_new_keywords(domain, days)
+        if suggestions:
+            kw_path = settings.project_root / "domains" / domain / "keywords.yaml"
+            if kw_path.exists():
+                data = yaml.safe_load(kw_path.read_text(encoding="utf-8"))
+                existing = set(data.get("keywords", []))
+                new_kw = [k for k in suggestions if k not in existing and not any(e in k or k in e for e in existing)]
+                if new_kw:
+                    data.setdefault("keywords", []).extend(new_kw)
+                    kw_path.write_text(yaml.dump(data, allow_unicode=True, default_flow_style=False), encoding="utf-8")
+                    applied.append(f"新增 {len(new_kw)} 个关键词: {'、'.join(new_kw[:5])}")
+    except Exception as e:
+        applied.append(f"关键词添加失败: {e}")
+
+    try:
+        from engine.evolution.source_analyzer import analyze_source_quality
+        dormant = [s for s in analyze_source_quality(domain, days)["sources"] if s["status"] == "dormant"]
+        if dormant:
+            for s in dormant:
+                console.print(f"  \u26a0\ufe0f 休眠信源: {s['source_id']}（{s['total']}条采集，0精选）")
+    except Exception as e:
+        console.print(f"  \u26a0\ufe0f 信源检测失败: {e}")
+
+    if applied:
+        for a in applied:
+            console.print(f"  \U0001f527 {a}")
+
     console.print("\n🎉 进化分析完成！")
 
 
