@@ -71,6 +71,13 @@ if "%CMD%"=="api" (
     goto :end
 )
 
+if "%CMD%"=="evolve" (
+    echo [%DATE% %TIME%] 进化分析 %DOMAIN% ...
+    python -m engine.cli -d %DOMAIN% evolve all
+    echo [%DATE% %TIME%] 进化分析完成
+    goto :end
+)
+
 if "%CMD%"=="dashboard" (
     echo [%DATE% %TIME%] 生成面板...
     python -c "import json; from engine.store import Store; from pathlib import Path; s=Store(); items=s.get_selected('%DOMAIN%', take=500, min_score=0); stats=s.get_stats('%DOMAIN%'); s.close(); template=Path('domains/elderly-care/web/index.html').read_text(); data={'items': items, 'stats': stats, 'domain_name': '银发产业情报'}; Path('data/dashboard-elderly-care.html').write_text(template[:template.find('<body')] + '\\n<script>window.__DATA=' + json.dumps(data, ensure_ascii=False, default=str) + '</script>\\n' + template[template.find('<body'):]); print('Dashboard 已生成: data/dashboard-elderly-care.html')"
