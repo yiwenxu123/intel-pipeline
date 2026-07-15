@@ -59,9 +59,9 @@ def apply_quality_gates(item: ScoredItem) -> ScoredItem:
         if not (has_factual_anchor(title) or has_factual_anchor(body)):
             score = min(score, settings.low_input_max_score)
 
-    if score >= 6.0 and not has_factual_anchor(item.summary):
+    if score >= 5.5 and not has_factual_anchor(item.summary):
         if not has_factual_anchor(combined):
-            score = min(score, 5.9)
+            score = min(score, 5.4)
 
     item.score = round(score, 2)
     item.content_type = normalize_content_type(item.content_type)

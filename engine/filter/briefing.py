@@ -88,7 +88,7 @@ def enrich_briefings(
     if not settings.briefing_enabled:
         return items
 
-    selected_idx = [i for i, it in enumerate(items) if it.score >= 6.0]
+    selected_idx = [i for i, it in enumerate(items) if it.score >= 5.5]
     if not selected_idx:
         return items
 

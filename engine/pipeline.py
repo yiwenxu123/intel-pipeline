@@ -105,7 +105,7 @@ def run_full_pipeline(domain: DomainConfig, notify: bool = True, max_items: int 
         try:
             from engine.output.report import generate_report, save_report, compute_trend_text
             yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
-            rows = store.get_selected(domain.name, take=100, min_score=6.0, published_date=yesterday)
+            rows = store.get_selected(domain.name, take=100, min_score=5.5, published_date=yesterday)
             if rows:
                 items = []
                 for r in rows:
@@ -197,7 +197,7 @@ def run_full_pipeline(domain: DomainConfig, notify: bool = True, max_items: int 
             try:
                 if settings.notify_webhook:
                     from engine.output.notifier import notify_report
-                    selected = store.get_selected(domain.name, take=5, min_score=6.0)
+                    selected = store.get_selected(domain.name, take=5, min_score=5.5)
                     stats = store.get_stats(domain.name)
                     report_json = None
                     if result.report_path:
@@ -274,12 +274,12 @@ def _record_daily_snapshot(domain_name: str, store: Store) -> None:
             (domain_name, today_start, today_end),
         ).fetchone()["c"]
         selected = store.conn.execute(
-            "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at >= ? AND created_at < ? AND score >= 6.0",
+            "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at >= ? AND created_at < ? AND score >= 5.5",
             (domain_name, today_start, today_end),
         ).fetchone()["c"]
         cat_rows = store.conn.execute(
             """SELECT category, COUNT(*) as cnt FROM scored_items
-               WHERE domain = ? AND created_at >= ? AND created_at < ? AND score >= 6.0 AND category IS NOT NULL
+               WHERE domain = ? AND created_at >= ? AND created_at < ? AND score >= 5.5 AND category IS NOT NULL
                GROUP BY category""",
             (domain_name, today_start, today_end),
         ).fetchall()

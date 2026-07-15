@@ -53,7 +53,7 @@ def analyze_source_quality(domain: str, days: int = 7) -> dict:
         """SELECT r.source_id, COUNT(*) as selected
            FROM scored_items s
            JOIN raw_items r ON s.raw_id = r.id
-           WHERE s.domain = ? AND s.score >= 6.0 AND s.created_at >= ?
+           WHERE s.domain = ? AND s.score >= 5.5 AND s.created_at >= ?
            GROUP BY r.source_id""",
         (domain, cutoff),
     ).fetchall()

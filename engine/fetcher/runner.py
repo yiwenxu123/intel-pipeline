@@ -74,8 +74,12 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> Fetch
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(_fetch_one, src): src for src in enabled_sources}
-        for future in as_completed(futures):
-            items, kw_count = future.result()
+        for future in as_completed(futures, timeout=45):
+            try:
+                items, kw_count = future.result()
+            except Exception:
+                logger.warning(f"信源采集超时，已跳过")
+                continue
             all_raw.extend(items)
             keywords_filter_count += kw_count
 

@@ -21,7 +21,7 @@ from engine.store import Store
 
 def _category_top3(items: list[ScoredItem]) -> list[dict]:
     from collections import Counter
-    selected = [s for s in items if s.score >= 6.0]
+    selected = [s for s in items if s.score >= 5.5]
     counts = Counter(s.category or "未分类" for s in selected)
     return [{"category": cat, "count": cnt} for cat, cnt in counts.most_common(3)]
 
@@ -30,7 +30,7 @@ def _top_entities(items: list[ScoredItem], limit: int = 5) -> list[str]:
     from collections import Counter
     counter: Counter[str] = Counter()
     for item in items:
-        if item.score >= 6.0:
+        if item.score >= 5.5:
             for ent in item.entities or []:
                 if ent:
                     counter[ent] += 1
@@ -63,7 +63,7 @@ def generate_report(scored: list[ScoredItem], domain: DomainConfig, total_fetche
         date: 日报日期 YYYY-MM-DD，留空自动设为今日。
     """
     report_date = date or datetime.now().strftime("%Y-%m-%d")
-    selected = [s for s in scored if s.score >= 6.0]
+    selected = [s for s in scored if s.score >= 5.5]
 
     report = DailyReport(
         date=report_date,
@@ -139,13 +139,56 @@ def report_to_markdown(report: DailyReport) -> str:
 
 
 def save_report(report: DailyReport, output_dir: Path | None = None):
-    """保存简报到文件。"""
+    """保存简报到文件，并生成编辑审阅版。"""
     output_dir = output_dir or (settings.project_root / settings.report_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Markdown 版
+    domain_cn = "银发产业" if report.domain == "elderly-care" else report.domain
+
+    # Markdown 版（对外发布版）
     md_path = output_dir / f"{report.date}-{report.domain}.md"
     md_path.write_text(report_to_markdown(report), encoding="utf-8")
+
+    # 编辑审阅版（供 Fred 每日审阅）
+    review_path = output_dir / f"{report.date}-{report.domain}-待审.md"
+    review_lines = []
+    review_lines.append(f"# {domain_cn}情报日报 — {report.date}（编辑审阅版）")
+    review_lines.append("")
+    review_lines.append("> 请逐条审阅下方精选条目，标记通过/误报/降级，并可补充点评。")
+    review_lines.append("")
+    review_lines.append("---")
+    review_lines.append("")
+    review_lines.append("## 📝 今日总编点评（可选）")
+    review_lines.append("")
+    review_lines.append("写一句你今天对读者想说的话，或今天最重要的观察：")
+    review_lines.append("")
+    review_lines.append("> _（在此输入你的点评）_")
+    review_lines.append("")
+    review_lines.append("---")
+    review_lines.append("")
+    review_lines.append("## 精选条目审阅")
+    review_lines.append("")
+
+    for i, item in enumerate(report.items, 1):
+        display_title = item_headline(item)
+        score_emoji = "🔴" if item.score >= 8 else ("🟡" if item.score >= 6.5 else "🟢")
+        takeaway = item_takeaway(item)
+        review_lines.append(f"### {i}. {score_emoji} [{display_title}]({item.raw.url})")
+        review_lines.append(f"")
+        review_lines.append(f"- **评分**：{item.score:.1f} | **分类**：{item.category} | **信源**：{item.raw.source_id}")
+        review_lines.append(f"- **摘要**：{item_lead(item)}")
+        if takeaway:
+            review_lines.append(f"- **价值**：{takeaway}")
+        review_lines.append(f"")
+        review_lines.append(f"**审阅**：[ ] 通过 ✅  [ ] 误报 ❌  [ ] 降级 ⬇️")
+        review_lines.append(f"")
+        review_lines.append(f"**补充点评**（可选）：")
+        review_lines.append(f"> _（这条信息对你有没有用？对谁特别有用？）_")
+        review_lines.append(f"")
+        review_lines.append("---")
+        review_lines.append("")
+
+    review_path.write_text("\n".join(review_lines), encoding="utf-8")
 
     # JSON 版（结构化数据，供 API 和 Agent 使用）
     json_path = output_dir / f"{report.date}-{report.domain}.json"

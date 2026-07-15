@@ -24,7 +24,7 @@ def analyze_scoring_distribution(domain: str, days: int = 7) -> dict:
                   AVG(score) as avg_score,
                   MIN(score) as min_score,
                   MAX(score) as max_score,
-                  SUM(CASE WHEN score >= 6.0 THEN 1 ELSE 0 END) as selected
+                  SUM(CASE WHEN score >= 5.5 THEN 1 ELSE 0 END) as selected
            FROM scored_items
            WHERE domain = ? AND created_at >= ?
            GROUP BY category""",
@@ -36,7 +36,7 @@ def analyze_scoring_distribution(domain: str, days: int = 7) -> dict:
         """SELECT r.source_id,
                   COUNT(*) as total,
                   AVG(s.score) as avg_score,
-                  SUM(CASE WHEN s.score >= 6.0 THEN 1 ELSE 0 END) as selected
+                  SUM(CASE WHEN s.score >= 5.5 THEN 1 ELSE 0 END) as selected
            FROM scored_items s
            JOIN raw_items r ON s.raw_id = r.id
            WHERE s.domain = ? AND s.created_at >= ?
@@ -48,7 +48,7 @@ def analyze_scoring_distribution(domain: str, days: int = 7) -> dict:
     overall = s.conn.execute(
         """SELECT COUNT(*) as total,
                   AVG(score) as avg_score,
-                  SUM(CASE WHEN score >= 6.0 THEN 1 ELSE 0 END) as selected
+                  SUM(CASE WHEN score >= 5.5 THEN 1 ELSE 0 END) as selected
            FROM scored_items
            WHERE domain = ? AND created_at >= ?""",
         (domain, cutoff),

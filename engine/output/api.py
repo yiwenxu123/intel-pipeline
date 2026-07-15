@@ -68,7 +68,7 @@ def get_items(
     days: Optional[int] = Query(default=None, description="最近 N 天，覆盖分类默认值"),
     date: Optional[str] = Query(default=None, description="按发布日期精确过滤 YYYY-MM-DD"),
     take: int = Query(default=100, le=500),
-    min_score: float = Query(default=6.0),
+    min_score: float = Query(default=5.5),
     q: Optional[str] = None,
 ):
     """获取情报条目列表。
@@ -178,7 +178,7 @@ def get_items(
 def get_dates(domain: str = Query(default="elderly-care")):
     """获取有精选条目的日期列表（降序），用于日期导航。"""
     s = get_store()
-    dates = s.get_available_dates(domain, min_score=6.0, limit=30)
+    dates = s.get_available_dates(domain, min_score=5.5, limit=30)
     return {"domain": domain, "dates": dates}
 
 
@@ -469,7 +469,7 @@ def api_overview():
             stats = store.get_stats(domain)
             today_row = store.conn.execute(
                 """SELECT COUNT(*) as c FROM scored_items
-                   WHERE domain = ? AND created_at LIKE ? AND score >= 6.0""",
+                   WHERE domain = ? AND created_at LIKE ? AND score >= 5.5""",
                 (domain, f"{today}%"),
             ).fetchone()
             change = store.get_change_narrative(domain)
@@ -503,7 +503,7 @@ def api_overview():
 def export_items(
     domain: str = Query(default="elderly-care"),
     days: int = Query(default=7, le=90),
-    min_score: float = Query(default=6.0),
+    min_score: float = Query(default=5.5),
     fmt: str = Query(default="markdown", alias="format", description="markdown / json"),
 ):
     """导出精选列表（Markdown 或 JSON）。"""
@@ -613,7 +613,7 @@ def health():
 def rss_curated(domain: str = Query(default="elderly-care")):
     """RSS Feed：精选情报。"""
     s = get_store()
-    items = s.get_selected(domain, take=50, min_score=6.0)
+    items = s.get_selected(domain, take=50, min_score=5.5)
     return _build_rss(f"{domain} 情报 - 精选", f"{domain} 精选情报 Feed", items, domain)
 
 
@@ -631,7 +631,7 @@ def rss_daily(domain: str = Query(default="elderly-care")):
     date = datetime.now().strftime("%Y-%m-%d")
     json_path = settings.project_root / settings.report_dir / f"{date}-{domain}.json"
     if not json_path.exists():
-        items = get_store().get_selected(domain, take=50, min_score=6.0)
+        items = get_store().get_selected(domain, take=50, min_score=5.5)
     else:
         data = json.loads(json_path.read_text(encoding="utf-8"))
         return _build_rss(f"{domain} 日报 - {date}", f"{domain} {date} 情报日报", data.get("items", []), domain)

@@ -31,7 +31,7 @@ def fetch_web(source: SourceDef) -> list[RawItem]:
     selectors = source.selectors or {}
 
     try:
-        resp = httpx.get(source.url, headers=HEADERS, timeout=30, follow_redirects=True)
+        resp = httpx.get(source.url, headers=HEADERS, timeout=httpx.Timeout(connect=10.0, read=20.0, write=10.0, pool=10.0), follow_redirects=True)
         resp.raise_for_status()
         resp.encoding = resp.encoding or "utf-8"
         soup = BeautifulSoup(resp.text, "lxml")

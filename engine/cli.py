@@ -106,7 +106,7 @@ def filter():
         total_saved = len(scored_batch)
         console.print(f"  评分完成：{total_saved} 条已写入")
 
-        selected = store.get_selected(domain.name, take=20, min_score=6.0)
+        selected = store.get_selected(domain.name, take=20, min_score=5.5)
 
         filter_duration = time.time() - filter_start
         from engine.filter.llm_client import get_usage
@@ -156,7 +156,7 @@ def report(date: str | None):
     report_date = date or (datetime.now(timezone.utc) - timedelta(days=1)).strftime("%Y-%m-%d")
 
     with Store() as store:
-        rows = store.get_selected(domain.name, take=100, min_score=6.0, published_date=report_date)
+        rows = store.get_selected(domain.name, take=100, min_score=5.5, published_date=report_date)
         if not rows:
             console.print(f"⚠️  {report_date} 没有精选条目，请先运行 [bold]intel filter[/]")
             return
@@ -434,8 +434,10 @@ def api():
 
 
 @cli.command()
-def pipe():
+@click.option("--max-time", default=600, help="管道最大执行时间（秒），超时自动终止（默认 600s）")
+def pipe(max_time: int):
     """完整流水线：fetch → filter → report → notify 一键执行。"""
+    import threading
     from engine.domain import load_domain
     from engine.ops.preflight import run_preflight
     from engine.pipeline import run_full_pipeline
@@ -448,9 +450,25 @@ def pipe():
         sys.exit(1)
 
     domain = load_domain()
-    console.print(f"🔄 执行 [{domain.name}] 完整流水线...\n")
+    console.print(f"🔄 执行 [{domain.name}] 完整流水线（超时限制 {max_time}s）...\n")
 
-    result = run_full_pipeline(domain)
+    # 超时看门狗
+    timeout_occurred = threading.Event()
+
+    def _timeout_killer():
+        timeout_occurred.set()
+        console.print(f"[red]❌ 管道执行超时（{max_time}s），已强制终止[/]")
+        import os
+        os._exit(1)
+
+    timer = threading.Timer(max_time, _timeout_killer)
+    timer.daemon = True
+    timer.start()
+
+    try:
+        result = run_full_pipeline(domain)
+    finally:
+        timer.cancel()
 
     if result.error:
         console.print(f"❌ 管道失败: {result.error}")

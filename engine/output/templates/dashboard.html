@@ -343,10 +343,10 @@ async function loadDateView() {
   // 构建 API URL
   let url;
   if (state.rangeMode === 'day') {
-    url = `/api/items?domain=${DOMAIN}&mode=selected&date=${state.date}&take=200&min_score=6.0`;
+    url = `/api/items?domain=${DOMAIN}&mode=selected&date=${state.date}&take=200&min_score=5.5`;
   } else {
     const days = state.rangeMode === 'week' ? 7 : 30;
-    url = `/api/items?domain=${DOMAIN}&mode=selected&days=${days}&take=200&min_score=6.0`;
+    url = `/api/items?domain=${DOMAIN}&mode=selected&days=${days}&take=200&min_score=5.5`;
   }
   if (state.category) url += `&category=${state.category}`;
   if (state.sourceId) url += `&source_id=${state.sourceId}`;

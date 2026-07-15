@@ -302,7 +302,7 @@ class Store:
         *,
         since: Optional[str] = None,
         take: int = 20,
-        min_score: float = 6.0,
+        min_score: float = 5.5,
     ) -> list[dict]:
         """质量验收查询：LEFT JOIN 容错缺失的 raw_items。"""
         sql = """
@@ -327,7 +327,7 @@ class Store:
         return [dict(r) for r in rows]
 
     def get_selected(self, domain: str, since: Optional[str] = None, category: Optional[str] = None,
-                     take: int = 50, min_score: float = 6.0,
+                     take: int = 50, min_score: float = 5.5,
                      published_since: Optional[str] = None,
                      published_date: Optional[str] = None,
                      q: Optional[str] = None) -> list[dict]:
@@ -347,7 +347,7 @@ class Store:
                                  published_date=published_date, q=q,
                                  order_by="s.created_at DESC")
 
-    def get_available_dates(self, domain: str, min_score: float = 6.0, limit: int = 30) -> list[dict]:
+    def get_available_dates(self, domain: str, min_score: float = 5.5, limit: int = 30) -> list[dict]:
         """获取有精选条目的日期列表（降序），用于日期导航。"""
         rows = self.conn.execute(
             """SELECT DATE(r.published) as date, COUNT(*) as cnt
@@ -369,7 +369,7 @@ class Store:
             rows = self.conn.execute(
                 """SELECT COUNT(*) as cnt, AVG(score) as avg_score
                    FROM scored_items
-                   WHERE domain = ? AND category = ? AND score >= 6.0
+                   WHERE domain = ? AND category = ? AND score >= 5.5
                    AND created_at >= ?""",
                 (domain, cat_id, cutoff.isoformat()),
             ).fetchall()
@@ -502,7 +502,7 @@ class Store:
                 (date_start, date_end),
             ).fetchone()["c"]
             selected = self.conn.execute(
-                "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at >= ? AND created_at < ? AND score >= 6.0",
+                "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND created_at >= ? AND created_at < ? AND score >= 5.5",
                 (domain, date_start, date_end),
             ).fetchone()["c"]
             return {"total_fetched": total, "selected": selected, "date": date}
@@ -511,7 +511,7 @@ class Store:
             "SELECT COUNT(*) as c FROM raw_items"
         ).fetchone()["c"]
         selected = self.conn.execute(
-            "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND score >= 6.0",
+            "SELECT COUNT(*) as c FROM scored_items WHERE domain = ? AND score >= 5.5",
             (domain,),
         ).fetchone()["c"]
 
@@ -792,7 +792,7 @@ class Store:
             """SELECT strftime('%Y-%W', created_at) as week,
                       MIN(created_at) as week_start,
                       COUNT(*) as total_items,
-                      SUM(CASE WHEN score >= 6.0 THEN 1 ELSE 0 END) as selected_items,
+                      SUM(CASE WHEN score >= 5.5 THEN 1 ELSE 0 END) as selected_items,
                       ROUND(AVG(score), 2) as avg_score
                FROM scored_items
                WHERE domain = ? AND created_at >= ?
@@ -803,7 +803,7 @@ class Store:
         monthly = self.conn.execute(
             """SELECT strftime('%Y-%m', created_at) as month,
                       COUNT(*) as total_items,
-                      SUM(CASE WHEN score >= 6.0 THEN 1 ELSE 0 END) as selected_items,
+                      SUM(CASE WHEN score >= 5.5 THEN 1 ELSE 0 END) as selected_items,
                       ROUND(AVG(score), 2) as avg_score
                FROM scored_items
                WHERE domain = ? AND created_at >= ?
@@ -814,7 +814,7 @@ class Store:
         cat_breakdown = self.conn.execute(
             """SELECT category, COUNT(*) as cnt,
                       ROUND(AVG(score), 2) as avg_score,
-                      SUM(CASE WHEN score >= 6.0 THEN 1 ELSE 0 END) as selected
+                      SUM(CASE WHEN score >= 5.5 THEN 1 ELSE 0 END) as selected
                FROM scored_items
                WHERE domain = ? AND created_at >= ? AND category IS NOT NULL
                GROUP BY category ORDER BY cnt DESC""",

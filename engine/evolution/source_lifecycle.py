@@ -53,7 +53,7 @@ def record_daily_metrics(domain: str, date: str | None = None) -> list[dict]:
         scored = store.conn.execute(
             """SELECT r.source_id, COUNT(*) as cnt
                FROM scored_items s JOIN raw_items r ON s.raw_id = r.id
-               WHERE s.domain = ? AND DATE(s.created_at) = ? AND s.score >= 6.0
+               WHERE s.domain = ? AND DATE(s.created_at) = ? AND s.score >= 5.5
                GROUP BY r.source_id""",
             (domain, date),
         ).fetchall()

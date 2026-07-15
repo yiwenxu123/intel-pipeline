@@ -9,7 +9,7 @@ items = s.get_selected('elderly-care', take=500, min_score=0)
 stats = s.get_stats('elderly-care')
 s.close()
 
-selected = [i for i in items if i.get('score', 0) >= 6.0]
+selected = [i for i in items if i.get('score', 0) >= 5.5]
 
 CAT = {
     'policy': '政策法规', 'industry': '行业动态', 'health_services': '健康服务',
