@@ -287,6 +287,7 @@ sources:
     lang: en
     keywords_filter: false
     tags: [银发经济, 欧洲, 市场]
+    enabled: false  # 2026-08-09 运行版已禁用（低产出）
 
   - id: gcoa
     name: Global Coalition on Aging
@@ -506,7 +507,6 @@ sources:
     type: policy
     lang: zh
     enabled: false  # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
-    enabled: true  # 国家医保局主管刊物，长护险政策第一手解读
     keywords_filter: false
     tags: [医保, 长护险, 政策, 官方]
 
@@ -531,7 +531,6 @@ sources:
     type: media
     lang: zh
     enabled: false  # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
-    enabled: true  # 老年大学、旅居养老、银发文娱
     keywords_filter: true
     tags: [老年教育, 旅居, 文娱, 生活]
 
@@ -545,6 +544,7 @@ sources:
     lang: en
     keywords_filter: true
     tags: [政策, 长护险, 养老, 英文, 深度]
+    enabled: false  # 2026-08-09 运行版已禁用（低产出）
 
   # ━━━ T1.5 热榜 + 关键词过滤 ━━━
 
