@@ -72,9 +72,10 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> Fetch
     enabled_sources = [s for s in domain.sources if s.enabled]
     logger.info(f"开始采集领域 [{domain.name}]，共 {len(enabled_sources)} 个信源")
 
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(_fetch_one, src): src for src in enabled_sources}
-        for future in as_completed(futures, timeout=45):
+    pool = ThreadPoolExecutor(max_workers=max_workers)
+    futures = {pool.submit(_fetch_one, src): src for src in enabled_sources}
+    try:
+        for future in as_completed(futures, timeout=90):
             try:
                 items, kw_count = future.result()
             except Exception:
@@ -82,6 +83,13 @@ def fetch_all(domain: DomainConfig, store: Store, max_workers: int = 4) -> Fetch
                 continue
             all_raw.extend(items)
             keywords_filter_count += kw_count
+    except TimeoutError:
+        logger.warning("采集超时，取消剩余任务并跳过等待")
+        for f in futures:
+            logger.warning(f"取消未完成信源: {futures[f].id}")
+            f.cancel()
+    finally:
+        pool.shutdown(wait=False)
 
     if keywords_filter_count > 0:
         logger.info(f"关键词过滤总计丢弃 {keywords_filter_count} 条无关条目")
