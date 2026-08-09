@@ -567,6 +567,7 @@ sources:
     lang: zh
     keywords_filter: true
     tags: [热点, 社交]
+    enabled: false  # 2026-08-09 自动降级：连续7天 0 精选，微博热搜与养老领域匹配度低
 
   - id: zhihu_hot
     name: 知乎热榜
