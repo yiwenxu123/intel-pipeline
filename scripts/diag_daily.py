@@ -16,7 +16,7 @@ for d, c in rows:
 
 print("\n=== 待评分队列按采集时间分布 ===")
 rows = s.conn.execute(
-    "SELECT substr(r.created_at,1,10) d, COUNT(*) FROM raw_items r "
+    "SELECT substr(r.fetched_at,1,10) d, COUNT(*) FROM raw_items r "
     "WHERE r.id NOT IN (SELECT raw_id FROM scored_items) "
     "GROUP BY d ORDER BY d DESC LIMIT 10"
 ).fetchall()
