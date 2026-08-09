@@ -10,7 +10,23 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-console = Console()
+# Windows 控制台/调度任务默认编码为 GBK，无法编码 emoji（如 🚀），
+# 导致 api 等命令在无 TTY 环境崩溃（UnicodeEncodeError）。
+# 强制 stdout/stderr 使用 UTF-8，避免 emoji 编码问题。
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+# force_terminal=False + no_color=True：无 TTY（SSH/调度任务/管道）时安全降级，
+# 不依赖终端宽度/颜色检测，避免 rich 在非交互环境抛异常。
+console = Console(force_terminal=False, no_color=True)
 
 
 def _setup_logging(verbose: bool):

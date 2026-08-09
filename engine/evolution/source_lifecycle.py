@@ -145,12 +145,14 @@ def detect_degradation(domain: str) -> list[dict]:
             # 门控条件：
             # 1. 观察期足够（根据信源类型）
             # 2. 跟踪天数足够（至少 window_days - 1 天）
-            # 3. 总采集量足够（避免小样本）
+            # 3. 总采集量足够（避免小样本）：总量达到阈值即可，
+            #    且平均每天至少 1 条（避免偶发采集的信源被误判）
             # 4. 平均产出率低于阈值（根据信源类型）
             # 5. 信源类型允许自动禁用
+            min_total_fetched = max(MIN_FETCH_COUNT, days_tracked)
             if (observation_days >= observation_days_required
                     and days_tracked >= DEGRADATION_WINDOW_DAYS - 1
-                    and total_fetched >= MIN_FETCH_COUNT * days_tracked
+                    and total_fetched >= min_total_fetched
                     and avg_yield < min_yield_rate
                     and auto_disable):
                 degraded.append({
