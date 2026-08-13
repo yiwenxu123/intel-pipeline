@@ -118,6 +118,7 @@ sources:
     lang: zh
     keywords_filter: false
     tags: [养老, 政策, 官方]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_agecare
     name: AgeCare养老服务
@@ -128,6 +129,7 @@ sources:
     lang: zh
     keywords_filter: true  # 260 条未评分，加过滤控制噪声（去除大会报名/推广内容）
     tags: [养老, 服务]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_agetravel
     name: AgeTravel银发文旅
@@ -138,6 +140,7 @@ sources:
     lang: zh
     keywords_filter: false
     tags: [养老, 文旅]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_aizhaohu
     name: 爱照护未来养老研究院
@@ -148,6 +151,7 @@ sources:
     lang: zh
     keywords_filter: false
     tags: [养老, 研究]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_yanglaoyjy
     name: 养老研究院
@@ -160,6 +164,8 @@ sources:
     tags: [养老, 研究, 数据]
 
   # -- 新增公众号 --
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+
   - id: wx_agetech
     name: AgeTech银发科技
     kind: rss
@@ -170,6 +176,7 @@ sources:
     enabled: true  # 2026-06-11 用户重新添加到 WeRSS，启用并加关键词过滤提纯
     keywords_filter: true
     tags: [养老科技, 投融资, AgeTech]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_ageclub
     name: AgeClub公众号
@@ -202,6 +209,7 @@ sources:
     lang: zh
     keywords_filter: true  # avg 4.5，加过滤提纯（去除脑机/减肥药等非养老内容）
     tags: [医疗, 养老科技, 投融资]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_changhuxqgc
     name: 长护险前哨观察
@@ -223,6 +231,7 @@ sources:
     lang: zh
     keywords_filter: false
     tags: [康养, 官方]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_yinfajingji_gc
     name: 银发经济观察
@@ -234,6 +243,7 @@ sources:
     enabled: true
     keywords_filter: false
     tags: [银发经济, 产业, 资讯, 趋势]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_jiankangzg
     name: 健康中国
@@ -247,6 +257,8 @@ sources:
     tags: [卫健委, 健康, 政策, 官方]
 
   # -- 海外信源 --
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+
   - id: joint_kaigo
     name: 介護ニュースJoint
     kind: rss
@@ -498,6 +510,7 @@ sources:
     enabled: true  # 清华五道口智库，养老金融权威研究
     keywords_filter: false
     tags: [养老金融, 政策, 研究, 清华]
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
   - id: wx_zgylbx
     name: 中国医疗保险
@@ -523,6 +536,8 @@ sources:
     tags: [健康, 医养结合, 慢病, 卫健委]
 
   # -- 养老生活（填补 lifestyle 缺口） --
+    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+
   - id: wx_zglnjy
     name: 中国老年教育
     kind: rss
