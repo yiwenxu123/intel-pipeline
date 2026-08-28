@@ -51,7 +51,7 @@ if "%CMD%"=="api" (
     goto :end
 )
 if "%CMD%"=="dashboard" (
-    python -c "import json;from engine.store import Store;from pathlib import Path;s=Store();items=s.get_selected('%DOMAIN%',take=500,min_score=0);stats=s.get_stats('%DOMAIN%');s.close();t=Path('domains/%DOMAIN%/web/index.html').read_text(encoding='utf-8');d={'items':items,'stats':stats,'domain_name':'银发产业情报'};js='window.__DATA='+json.dumps(d,ensure_ascii=False,default=str);t=t.replace('<body',js+'</script>\n<body',1);Path('data/dashboard-%DOMAIN%.html').write_text(t,encoding='utf-8');print('OK')"
+    python -c "import json;from engine.store import Store;from pathlib import Path;s=Store();items=s.get_selected('%DOMAIN%',take=500,min_score=0);stats=s.get_stats('%DOMAIN%');s.close();t=Path('domains/%DOMAIN%/web/index.html').read_text(encoding='utf-8');d={'items':items,'stats':stats,'domain_name':'银发产业情报'};js='window.__DATA='+json.dumps(d,ensure_ascii=False,default=str);t=t.replace('<body','<script>'+js+'</script>\n<body',1);Path('data/dashboard-%DOMAIN%.html').write_text(t,encoding='utf-8');print('OK')"
     goto :end
 )
 
