@@ -1,8 +1,8 @@
 @echo off
 REM Intel Pipeline - Windows 定时任务安装脚本（完整版）
-REM 2026-08-28 全量体检后重写：对齐部署机实际 7 个任务
+REM 2026-08-28 体检后重写：对齐部署机实际 7 个任务
 REM Report 已移除 —— Daily pipe 已含日报，避免 01:00 双任务并发写库
-REM 防火墙规则需要管理员权限，其余任务普通权限即可注册
+REM API-Boot 需要管理员权限注册（SYSTEM 开机自启、免登录）；其余普通权限即可
 
 set "PROJECT_DIR=C:\Users\yihong123\Projects\intel-pipeline"
 set "RUN=%PROJECT_DIR%\run.bat"
@@ -23,8 +23,8 @@ schtasks /create /tn "IntelPipeline-Daily" /sc daily /st 01:00 /tr "%RUN% pipe" 
 REM ── 进化分析（每周一 02:00）──
 schtasks /create /tn "IntelPipeline-Evolve" /sc weekly /d MON /st 02:00 /tr "%RUN% evolve" /f >nul && echo [OK] 每周一 02:00 进化分析
 
-REM ── API 守护（登录自启；重定向在 win-api.bat 内部，勿在 Action 里写重定向）──
-schtasks /create /tn "IntelPipeline-API-Login" /sc onlogon /delay 0000:10 /tr "%API_BAT%" /f >nul && echo [OK] 登录时启动 API（延迟 10s，日志 data\api.log）
+REM ── API 守护（开机自启 SYSTEM 免登录；重定向在 win-api.bat 内部，勿在 Action 里写重定向）──
+schtasks /create /tn "IntelPipeline-API-Boot" /sc onstart /delay 0000:15 /ru SYSTEM /tr "%API_BAT%" /f >nul && echo [OK] 开机自启 API（SYSTEM，延迟 15s，日志 data\api.log） || echo [失败] 注册 SYSTEM 任务需以管理员运行
 
 REM ── 防火墙放行 8900（需管理员；绑定 0.0.0.0 供跨机访问）──
 netsh advfirewall firewall add rule name="IntelPipeline-API-8900" dir=in action=allow protocol=TCP localport=8900 >nul 2>&1 && echo [OK] 防火墙已放行 TCP 8900 || echo [跳过] 防火墙规则需以管理员运行
