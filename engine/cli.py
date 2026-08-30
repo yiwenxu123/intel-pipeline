@@ -220,6 +220,31 @@ def report(date: str | None):
     console.print(f"   📊 {json_path}")
 
 
+@cli.command("export-intel")
+@click.option("--days", default=2, help="导出最近 N 天发布的精选条目")
+@click.option("--min-score", default=5.5, help="最低分数")
+@click.option("--take", default=200, help="最多导出条数")
+@click.option("--output", default=None, help="输出路径（默认 data/intel-data.json）")
+def export_intel(days: int, min_score: float, take: int, output: str | None):
+    """导出精选条目为 intel-data.json（供内容运营agent IntelPipelineSource 摄入）。"""
+    from pathlib import Path
+
+    from engine.domain import load_domain
+    from engine.ops.export_intel import export_intel_data
+
+    domain = load_domain()
+    payload, out_path = export_intel_data(
+        domain.name,
+        days=days,
+        min_score=min_score,
+        take=take,
+        output=Path(output) if output else None,
+    )
+    console.print(f"✅ 已导出 {payload['count']} 条精选（≥{min_score} 分，近 {days} 天）→ {out_path}")
+    if payload["count"] == 0:
+        console.print("⚠️  导出为空：请确认 filter 已产出达标条目，或降低 --min-score")
+
+
 @cli.command("quality-review")
 @click.option("--take", default=20, help="抽样条数")
 @click.option("--days", default=7, help="最近 N 天")

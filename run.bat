@@ -22,6 +22,7 @@ if "%CMD%"=="fetch" (
 )
 if "%CMD%"=="filter" (
     python -m engine.cli -d %DOMAIN% filter
+    python -m engine.cli -d %DOMAIN% export-intel
     goto :end
 )
 if "%CMD%"=="report" (
@@ -30,12 +31,14 @@ if "%CMD%"=="report" (
 )
 if "%CMD%"=="pipe" (
     python -m engine.cli -d %DOMAIN% pipe
+    python -m engine.cli -d %DOMAIN% export-intel
     goto :end
 )
 if "%CMD%"=="nightly" (
     python -m engine.cli -d %DOMAIN% fetch --max-workers 4
     python -m engine.cli -d %DOMAIN% filter
     python -m engine.cli -d %DOMAIN% report
+    python -m engine.cli -d %DOMAIN% export-intel
     goto :end
 )
 if "%CMD%"=="noon" (
@@ -55,5 +58,5 @@ if "%CMD%"=="dashboard" (
     goto :end
 )
 
-echo Commands: fetch ^| filter ^| report ^| pipe ^| nightly ^| noon ^| evolve ^| api ^| dashboard
+echo Commands: fetch ^| filter ^| report ^| pipe ^| nightly ^| noon ^| evolve ^| api ^| dashboard ^| export-intel
 :end
