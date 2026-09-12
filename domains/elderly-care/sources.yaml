@@ -650,6 +650,34 @@ sources:
     - 养老机构 管理
   tags: [政策, 养老, 搜索]
 
+- id: searxng_wx_accounts
+  name: SearXNG 微信公众号定向搜索
+  kind: searxng
+  url: http://10.207.251.137:8080
+  tier: T1.5
+  type: media
+  lang: zh
+  keywords_filter: false
+  # 2026-08-13 WeRSS 移除后的公众号兜底层：按号定向搜索，覆盖不全但零成本零风控
+  selectors:
+    url_filter: mp.weixin.qq.com
+    search_queries:
+    - 阿沐养老
+    - AgeClub 银发经济
+    - 动脉网 养老
+    - 银发经济观察
+    - 养老研究院
+    - AgeCare 养老服务
+    - AgeTravel 银发文旅
+    - AgeTech 银发科技
+    - 长护险 前哨观察
+    - 人民康养
+    - 健康中国 养老
+    - 中国民政 养老
+    - 泰康之家
+    - 亿欧 大健康 养老
+  tags: [微信公众号, 搜索, 兜底]
+
   # ━━━ T2 参考源 ━━━
 
 - id: zhihuiyanglao
@@ -673,3 +701,155 @@ sources:
   enabled: false    # 持续 0 条结果，选择器可能失效
   keywords_filter: false
   tags: [养老, AI]
+
+  # ━━━ T1.5/T2 国际补充源（2026-09-12 打捞自 SilverBrief v3.1 验证清单，去重后新增）━━━
+
+- id: australian_ageing
+  name: Australian Ageing Agenda
+  kind: rss
+  url: https://www.australianageingagenda.com.au/feed/
+  tier: T1.5
+  type: overseas
+  lang: en
+  keywords_filter: false
+  tags: [养老, 澳大利亚, 行业]
+
+- id: aging_media
+  name: Aging Media Network
+  kind: rss
+  url: https://agingmedia.com/feed
+  tier: T1.5
+  type: overseas
+  lang: en
+  keywords_filter: false
+  tags: [养老产业, 美国, 运营]
+
+- id: cdc_aging
+  name: CDC Aging
+  kind: rss
+  url: https://www.cdc.gov/rss/aging.xml
+  tier: T1.5
+  type: policy
+  lang: en
+  keywords_filter: false
+  tags: [老年健康, 美国, 官方]
+
+- id: mhlw_kinkyu
+  name: 厚生労働省 緊急情報
+  kind: rss
+  url: https://www.mhlw.go.jp/stf/kinkyu.rdf
+  tier: T2
+  type: policy
+  lang: ja
+  keywords_filter: false
+  tags: [日本, 政策, 官方]
+
+- id: frontiers_aging
+  name: Frontiers in Aging
+  kind: rss
+  url: https://www.frontiersin.org/journals/aging/rss
+  tier: T2
+  type: research
+  lang: en
+  keywords_filter: false
+  tags: [老年医学, 研究]
+
+- id: who_news
+  name: WHO News
+  kind: rss
+  url: https://www.who.int/rss-feeds/news-english.xml
+  tier: T2
+  type: overseas
+  lang: en
+  keywords_filter: true
+  tags: [国际, 卫生政策]
+
+- id: stat_news
+  name: STAT News
+  kind: rss
+  url: https://www.statnews.com/feed/
+  tier: T2
+  type: media
+  lang: en
+  keywords_filter: true
+  tags: [医疗健康, 美国]
+
+- id: nhs_england
+  name: NHS England
+  kind: rss
+  url: https://www.england.nhs.uk/feed/
+  tier: T2
+  type: media
+  lang: en
+  keywords_filter: true
+  tags: [医疗体系, 英国, 老年照护]
+
+- id: kaiser_health
+  name: Kaiser Health News (KFF)
+  kind: rss
+  url: https://khn.org/feed/
+  tier: T2
+  type: media
+  lang: en
+  keywords_filter: true
+  tags: [医疗健康, 美国, 长期照护]
+
+- id: nature_medicine
+  name: Nature Medicine
+  kind: rss
+  url: https://www.nature.com/nm.rss
+  tier: T2
+  type: research
+  lang: en
+  keywords_filter: true
+  tags: [医学, 研究]
+
+- id: sciencedaily_health
+  name: Science Daily Health
+  kind: rss
+  url: https://www.sciencedaily.com/rss/health_medicine.xml
+  tier: T2
+  type: research
+  lang: en
+  keywords_filter: true
+  tags: [健康, 研究]
+
+- id: lancet
+  name: The Lancet
+  kind: rss
+  url: https://www.thelancet.com/rssfeed/lancet_current.xml
+  tier: T2
+  type: research
+  lang: en
+  keywords_filter: true
+  tags: [医学, 研究]
+
+- id: plos_medicine
+  name: PLOS Medicine
+  kind: rss
+  url: https://journals.plos.org/plosmedicine/feed/atom
+  tier: T2
+  type: research
+  lang: en
+  keywords_filter: true
+  tags: [公共卫生, 研究]
+
+- id: mit_tech_review
+  name: MIT Technology Review
+  kind: rss
+  url: https://www.technologyreview.com/feed/
+  tier: T2
+  type: media
+  lang: en
+  keywords_filter: true
+  tags: [科技, AI]
+
+- id: wired_health
+  name: Wired Health
+  kind: rss
+  url: https://www.wired.com/feed/category/science/latest/rss
+  tier: T2
+  type: media
+  lang: en
+  keywords_filter: true
+  tags: [科技, 健康]
