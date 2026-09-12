@@ -9,679 +9,667 @@ sources:
   # ━━━ T1 垂直源（天然养老内容，无需关键词过滤）━━━
 
   # -- AgeClub（银发经济垂直媒体，自动提取原始来源） --
-  - id: ageclub_web
-    name: AgeClub
-    kind: ageclub
-    url: https://www.ageclub.net/
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    tags: [养老, 产业, 研究]
+- id: ageclub_web
+  name: AgeClub
+  kind: ageclub
+  url: https://www.ageclub.net/
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: false
+  tags: [养老, 产业, 研究]
 
   # -- 政策源 --
-  - id: mca_pension
-    name: 民政部养老政策
-    kind: web
-    url: https://www.mca.gov.cn/
-    tier: T1
-    type: policy
-    lang: zh
-    enabled: false  # 页面 JS 动态加载，web fetcher 无法抓取；内容已被 wx_guojiaminzheng 覆盖
-    keywords_filter: false
-    tags: [政策, 官方]
+- id: mca_pension
+  name: 民政部养老政策
+  kind: web
+  url: https://www.mca.gov.cn/
+  tier: T1
+  type: policy
+  lang: zh
+  enabled: false    # 页面 JS 动态加载，web fetcher 无法抓取；内容已被 wx_guojiaminzheng 覆盖
+  keywords_filter: false
+  tags: [政策, 官方]
 
-  - id: nhsa_policy
-    name: 国家医保局
-    kind: web
-    url: https://www.nhsa.gov.cn/
-    tier: T1
-    type: policy
-    lang: zh
-    keywords_filter: false
-    selectors:
-      article: ".ybxw li"
-      title: "a[href*='/art/']"
-    tags: [长护险, 医保, 政策]
+- id: nhsa_policy
+  name: 国家医保局
+  kind: web
+  url: https://www.nhsa.gov.cn/
+  tier: T1
+  type: policy
+  lang: zh
+  keywords_filter: false
+  selectors:
+    article: ".ybxw li"
+    title: "a[href*='/art/']"
+  tags: [长护险, 医保, 政策]
 
   # -- 行业媒体 --
-  - id: yinfajingji
-    name: 银发经济网
-    kind: web
-    url: https://www.yinfajingji.cn/
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    selectors:
-      article: ".list-main"
-      title: "a"
-      date: ".date"
-      desc: ".decs"
-    tags: [银发经济, 产业]
+- id: yinfajingji
+  name: 银发经济网
+  kind: web
+  url: https://www.yinfajingji.cn/
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: false
+  selectors:
+    article: ".list-main"
+    title: "a"
+    date: ".date"
+    desc: ".decs"
+  tags: [银发经济, 产业]
 
-  - id: yanglaodongtai
-    name: 养老动态网
-    kind: web
-    url: https://www.yanglaodongtai.com/
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    selectors:
-      article: ".kr-flow-article-item"
-      title: ".article-item-info a"
-      desc: ".article-item-info"
-    tags: [养老, 行业]
+- id: yanglaodongtai
+  name: 养老动态网
+  kind: web
+  url: https://www.yanglaodongtai.com/
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: false
+  selectors:
+    article: ".kr-flow-article-item"
+    title: ".article-item-info a"
+    desc: ".article-item-info"
+  tags: [养老, 行业]
 
-  - id: crca
-    name: 中国老龄科学研究中心
-    kind: web
-    url: http://www.crca.cn/
-    tier: T1
-    type: research
-    lang: zh
-    keywords_filter: false
-    selectors:
-      article: "li"
-      title: "a[href*='/index.php/1']"
-    tags: [老龄研究, 学术]
+- id: crca
+  name: 中国老龄科学研究中心
+  kind: web
+  url: http://www.crca.cn/
+  tier: T1
+  type: research
+  lang: zh
+  keywords_filter: false
+  selectors:
+    article: "li"
+    title: "a[href*='/index.php/1']"
+  tags: [老龄研究, 学术]
 
-  - id: vbdata
-    name: 动脉网
-    kind: web
-    url: https://www.vbdata.cn/
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: true
-    tags: [医疗健康, 养老科技, 投融资]
+- id: vbdata
+  name: 动脉网
+  kind: web
+  url: https://www.vbdata.cn/
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: true
+  tags: [医疗健康, 养老科技, 投融资]
 
-  - id: chinairn
-    name: 前瞻产业研究院
-    kind: web
-    url: https://www.chinairn.com/
-    tier: T1.5
-    type: research
-    lang: zh
-    enabled: false  # 403 Forbidden，反爬
-    keywords_filter: true
-    tags: [产业报告, 数据]
+- id: chinairn
+  name: 前瞻产业研究院
+  kind: web
+  url: https://www.chinairn.com/
+  tier: T1.5
+  type: research
+  lang: zh
+  enabled: false    # 403 Forbidden，反爬
+  keywords_filter: true
+  tags: [产业报告, 数据]
 
   # -- WeRSS 养老公众号 --
-  - id: wx_guojiaminzheng
-    name: 国家民政养老服务
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3942502210
-    tier: T1
-    type: policy
-    lang: zh
-    keywords_filter: false
-    tags: [养老, 政策, 官方]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: wx_guojiaminzheng
+  name: 国家民政养老服务
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3942502210
+  tier: T1
+  type: policy
+  lang: zh
+  keywords_filter: false
+  tags: [养老, 政策, 官方]
+  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
-  - id: wx_agecare
-    name: AgeCare养老服务
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3547311802
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: true  # 260 条未评分，加过滤控制噪声（去除大会报名/推广内容）
-    tags: [养老, 服务]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: wx_agecare
+  name: AgeCare养老服务
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3547311802
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: true    # 260 条未评分，加过滤控制噪声（去除大会报名/推广内容）
+  tags: [养老, 服务]
+  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
-  - id: wx_agetravel
-    name: AgeTravel银发文旅
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3559713809
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    tags: [养老, 文旅]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: wx_agetravel
+  name: AgeTravel银发文旅
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3559713809
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: false
+  tags: [养老, 文旅]
+  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
-  - id: wx_aizhaohu
-    name: 爱照护未来养老研究院
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3571366695
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    tags: [养老, 研究]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: wx_aizhaohu
+  name: 爱照护未来养老研究院
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3571366695
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: false
+  tags: [养老, 研究]
+  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
-  - id: wx_yanglaoyjy
-    name: 养老研究院
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3015041877
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: false
-    tags: [养老, 研究, 数据]
+- id: wx_yanglaoyjy
+  name: 养老研究院
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3015041877
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: false
+  tags: [养老, 研究, 数据]
 
   # -- 新增公众号 --
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
-  - id: wx_agetech
-    name: AgeTech银发科技
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3524052466
-    tier: T1
-    type: media
-    lang: zh
-    enabled: true  # 2026-06-11 用户重新添加到 WeRSS，启用并加关键词过滤提纯
-    keywords_filter: true
-    tags: [养老科技, 投融资, AgeTech]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: wx_agetech
+  name: AgeTech银发科技
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3524052466
+  tier: T1
+  type: media
+  lang: zh
+  enabled: true    # 2026-06-11 用户重新添加到 WeRSS，启用并加关键词过滤提纯
+  keywords_filter: true
+  tags: [养老科技, 投融资, AgeTech]
+- id: wx_ageclub
+  name: AgeClub公众号
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3244487543
+  tier: T1
+  type: media
+  lang: zh
+  enabled: false    # 与 ageclub_web 重复，avg 5.1，0 精选
+  keywords_filter: false
+  tags: [养老, 产业, AgeClub]
 
-  - id: wx_ageclub
-    name: AgeClub公众号
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3244487543
-    tier: T1
-    type: media
-    lang: zh
-    enabled: false  # 与 ageclub_web 重复，avg 5.1，0 精选
-    keywords_filter: false
-    tags: [养老, 产业, AgeClub]
+- id: wx_amuyanglao
+  name: 阿沐养老
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3095321375
+  tier: T1
+  type: media
+  lang: zh
+  enabled: false    # avg 5.3，仅 2 条，0 精选
+  keywords_filter: false
+  tags: [养老, 行业, 深度]
 
-  - id: wx_amuyanglao
-    name: 阿沐养老
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3095321375
-    tier: T1
-    type: media
-    lang: zh
-    enabled: false  # avg 5.3，仅 2 条，0 精选
-    keywords_filter: false
-    tags: [养老, 行业, 深度]
+- id: wx_dongmaiwang
+  name: 动脉网
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_2391320846
+  tier: T1
+  type: media
+  lang: zh
+  keywords_filter: true    # avg 4.5，加过滤提纯（去除脑机/减肥药等非养老内容）
+  tags: [医疗, 养老科技, 投融资]
+  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
-  - id: wx_dongmaiwang
-    name: 动脉网
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_2391320846
-    tier: T1
-    type: media
-    lang: zh
-    keywords_filter: true  # avg 4.5，加过滤提纯（去除脑机/减肥药等非养老内容）
-    tags: [医疗, 养老科技, 投融资]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: wx_changhuxqgc
+  name: 长护险前哨观察
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3566830678
+  tier: T1
+  type: policy
+  lang: zh
+  enabled: false    # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
+  keywords_filter: false
+  tags: [长护险, 政策]
 
-  - id: wx_changhuxqgc
-    name: 长护险前哨观察
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3566830678
-    tier: T1
-    type: policy
-    lang: zh
-    enabled: false  # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
-    keywords_filter: false
-    tags: [长护险, 政策]
+- id: wx_renminkk
+  name: 人民康养
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3871693692
+  tier: T1
+  type: policy
+  lang: zh
+  keywords_filter: false
+  tags: [康养, 官方]
+  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
 
-  - id: wx_renminkk
-    name: 人民康养
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3871693692
-    tier: T1
-    type: policy
-    lang: zh
-    keywords_filter: false
-    tags: [康养, 官方]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: wx_yinfajingji_gc
+  name: 银发经济观察
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3000076142
+  tier: T1
+  type: media
+  lang: zh
+  enabled: true
+  keywords_filter: false
+  tags: [银发经济, 产业, 资讯, 趋势]
+- id: wx_jiankangzg
+  name: 健康中国
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_2396268083
+  tier: T1
+  type: policy
+  lang: zh
+  enabled: true
+  keywords_filter: true
+  tags: [卫健委, 健康, 政策, 官方]
+- id: joint_kaigo
+  name: 介護ニュースJoint
+  kind: rss
+  url: https://www.joint-kaigo.com/feed/
+  tier: T1
+  type: overseas
+  lang: ja
+  keywords_filter: false
+  tags: [介护, 日本, 制度]
 
-  - id: wx_yinfajingji_gc
-    name: 银发经济观察
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3000076142
-    tier: T1
-    type: media
-    lang: zh
-    enabled: true
-    keywords_filter: false
-    tags: [银发经济, 产业, 资讯, 趋势]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: seniorhousing
+  name: Senior Housing News
+  kind: rss
+  url: https://seniorhousingnews.com/feed/
+  tier: T1
+  type: overseas
+  lang: en
+  keywords_filter: false
+  tags: [养老住宅, 美国, 运营]
 
-  - id: wx_jiankangzg
-    name: 健康中国
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_2396268083
-    tier: T1
-    type: policy
-    lang: zh
-    enabled: true
-    keywords_filter: true
-    tags: [卫健委, 健康, 政策, 官方]
+- id: venturesquare
+  name: Venture Square
+  kind: rss
+  url: https://www.venturesquare.net/en/feed/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 韩国创业媒体，与养老领域无关
+  keywords_filter: true
+  tags: [韩国, 创业, 投融资]
 
-  # -- 海外信源 --
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+- id: silvereco
+  name: Silver Economy
+  kind: rss
+  url: https://www.silvereco.org/en/feed/
+  tier: T1.5
+  type: overseas
+  lang: en
+  keywords_filter: false
+  tags: [银发经济, 欧洲, 市场]
+  enabled: false    # 2026-08-09 运行版已禁用（低产出）
 
-  - id: joint_kaigo
-    name: 介護ニュースJoint
-    kind: rss
-    url: https://www.joint-kaigo.com/feed/
-    tier: T1
-    type: overseas
-    lang: ja
-    keywords_filter: false
-    tags: [介护, 日本, 制度]
+- id: gcoa
+  name: Global Coalition on Aging
+  kind: rss
+  url: https://globalcoalitiononaging.com/feed/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 国际老龄化组织，与养老领域关联度低
+  keywords_filter: false
+  tags: [老龄化, 政策, 国际]
 
-  - id: seniorhousing
-    name: Senior Housing News
-    kind: rss
-    url: https://seniorhousingnews.com/feed/
-    tier: T1
-    type: overseas
-    lang: en
-    keywords_filter: false
-    tags: [养老住宅, 美国, 运营]
-
-  - id: venturesquare
-    name: Venture Square
-    kind: rss
-    url: https://www.venturesquare.net/en/feed/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 韩国创业媒体，与养老领域无关
-    keywords_filter: true
-    tags: [韩国, 创业, 投融资]
-
-  - id: silvereco
-    name: Silver Economy
-    kind: rss
-    url: https://www.silvereco.org/en/feed/
-    tier: T1.5
-    type: overseas
-    lang: en
-    keywords_filter: false
-    tags: [银发经济, 欧洲, 市场]
-    enabled: false  # 2026-08-09 运行版已禁用（低产出）
-
-  - id: gcoa
-    name: Global Coalition on Aging
-    kind: rss
-    url: https://globalcoalitiononaging.com/feed/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 国际老龄化组织，与养老领域关联度低
-    keywords_filter: false
-    tags: [老龄化, 政策, 国际]
-
-  - id: seoulz
-    name: Seoulz
-    kind: rss
-    url: https://www.seoulz.com/feed/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 韩国科技媒体，与养老领域无关
-    keywords_filter: true
-    tags: [韩国, 科技, 银发经济]
+- id: seoulz
+  name: Seoulz
+  kind: rss
+  url: https://www.seoulz.com/feed/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 韩国科技媒体，与养老领域无关
+  keywords_filter: true
+  tags: [韩国, 科技, 银发经济]
 
   # -- 新增海外信源：日本 --
-  - id: nikkei_xtech
-    name: 日経クロステック
-    kind: rss
-    url: https://xtech.nikkei.com/rss/feed/nikkei_xtech.xml
-    tier: T1
-    type: overseas
-    lang: ja
-    enabled: false  # 2026-06-11 验证：404 Not Found，无可用RSS feed
-    keywords_filter: true
-    tags: [科技, 养老, 日本]
+- id: nikkei_xtech
+  name: 日経クロステック
+  kind: rss
+  url: https://xtech.nikkei.com/rss/feed/nikkei_xtech.xml
+  tier: T1
+  type: overseas
+  lang: ja
+  enabled: false    # 2026-06-11 验证：404 Not Found，无可用RSS feed
+  keywords_filter: true
+  tags: [科技, 养老, 日本]
 
-  - id: nikkei_health
-    name: 日経新聞 健康
-    kind: rss
-    url: https://www.nikkei.com/rss/genre/health.xml
-    tier: T1.5
-    type: overseas
-    lang: ja
-    enabled: false  # 2026-06-11 验证：404 Not Found，无可用RSS feed
-    keywords_filter: true
-    tags: [健康, 养老, 日本]
+- id: nikkei_health
+  name: 日経新聞 健康
+  kind: rss
+  url: https://www.nikkei.com/rss/genre/health.xml
+  tier: T1.5
+  type: overseas
+  lang: ja
+  enabled: false    # 2026-06-11 验证：404 Not Found，无可用RSS feed
+  keywords_filter: true
+  tags: [健康, 养老, 日本]
 
-  - id: mhlw_japan
-    name: 厚生労働省
-    kind: web
-    url: https://www.mhlw.go.jp/
-    tier: T1
-    type: policy
-    lang: ja
-    keywords_filter: false
-    selectors:
-      article: "ul.m-listNews li"
-      title: "a"
-      date: "time.m-listNews__date"
-    tags: [政策, 养老, 日本]
+- id: mhlw_japan
+  name: 厚生労働省
+  kind: web
+  url: https://www.mhlw.go.jp/
+  tier: T1
+  type: policy
+  lang: ja
+  keywords_filter: false
+  selectors:
+    article: "ul.m-listNews li"
+    title: "a"
+    date: "time.m-listNews__date"
+  tags: [政策, 养老, 日本]
 
   # -- 新增海外信源：美国 --
-  - id: mcknights
-    name: McKnight's Senior Living
-    kind: rss
-    url: https://www.mcknightsseniorliving.com/feed/
-    tier: T1
-    type: overseas
-    lang: en
-    enabled: false  # 403 Forbidden，反爬
-    keywords_filter: false
-    tags: [养老住宅, 美国, 运营]
+- id: mcknights
+  name: McKnight's Senior Living
+  kind: rss
+  url: https://www.mcknightsseniorliving.com/feed/
+  tier: T1
+  type: overseas
+  lang: en
+  enabled: false    # 403 Forbidden，反爬
+  keywords_filter: false
+  tags: [养老住宅, 美国, 运营]
 
-  - id: ncoa
-    name: National Council on Aging
-    kind: rss
-    url: https://www.ncoa.org/feed/
-    tier: T1
-    type: overseas
-    lang: en
-    enabled: false  # 404 Not Found，RSS 地址失效
-    keywords_filter: false
-    tags: [老龄化, 政策, 美国]
+- id: ncoa
+  name: National Council on Aging
+  kind: rss
+  url: https://www.ncoa.org/feed/
+  tier: T1
+  type: overseas
+  lang: en
+  enabled: false    # 404 Not Found，RSS 地址失效
+  keywords_filter: false
+  tags: [老龄化, 政策, 美国]
 
-  - id: aarp
-    name: AARP
-    kind: rss
-    url: https://www.aarp.org/rss/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 采集到 0 条，RSS 格式可能已变更
-    keywords_filter: true
-    tags: [退休, 养老, 美国]
+- id: aarp
+  name: AARP
+  kind: rss
+  url: https://www.aarp.org/rss/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 采集到 0 条，RSS 格式可能已变更
+  keywords_filter: true
+  tags: [退休, 养老, 美国]
 
   # -- 新增海外信源：欧洲 --
-  - id: ageingeurope
-    name: Ageing Europe
-    kind: rss
-    url: https://ageing-europe.com/feed/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # SSL 错误
-    keywords_filter: false
-    tags: [老龄化, 欧洲, 政策]
+- id: ageingeurope
+  name: Ageing Europe
+  kind: rss
+  url: https://ageing-europe.com/feed/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # SSL 错误
+  keywords_filter: false
+  tags: [老龄化, 欧洲, 政策]
 
-  - id: ec_social
-    name: European Commission Social
-    kind: rss
-    url: https://ec.europa.eu/social/rss.xml
-    tier: T1.5
-    type: policy
-    lang: en
-    enabled: false  # 404 Not Found，RSS 地址失效
-    keywords_filter: true
-    tags: [政策, 社会, 欧洲]
+- id: ec_social
+  name: European Commission Social
+  kind: rss
+  url: https://ec.europa.eu/social/rss.xml
+  tier: T1.5
+  type: policy
+  lang: en
+  enabled: false    # 404 Not Found，RSS 地址失效
+  keywords_filter: true
+  tags: [政策, 社会, 欧洲]
 
   # -- 新增海外信源：韩国 --
-  - id: koreajoongang
-    name: Korea JoongAng Daily
-    kind: rss
-    url: https://koreajoongangdaily.joins.com/rss/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 2026-06-11 验证：404 Not Found，RSS地址失效
-    keywords_filter: true
-    tags: [新闻, 韩国, 养老]
+- id: koreajoongang
+  name: Korea JoongAng Daily
+  kind: rss
+  url: https://koreajoongangdaily.joins.com/rss/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 2026-06-11 验证：404 Not Found，RSS地址失效
+  keywords_filter: true
+  tags: [新闻, 韩国, 养老]
 
-  - id: koreaherald
-    name: The Korea Herald
-    kind: rss
-    url: https://www.koreaherald.com/rss/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 2026-06-11 验证：HTTP 200但RSS内容为空(420字节)
-    keywords_filter: true
-    tags: [新闻, 韩国, 养老]
+- id: koreaherald
+  name: The Korea Herald
+  kind: rss
+  url: https://www.koreaherald.com/rss/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 2026-06-11 验证：HTTP 200但RSS内容为空(420字节)
+  keywords_filter: true
+  tags: [新闻, 韩国, 养老]
 
   # -- 新增海外信源：国际组织 --
-  - id: who_ageing
-    name: WHO Ageing
-    kind: rss
-    url: https://www.who.int/rss/feeds/ageing.xml
-    tier: T1
-    type: research
-    lang: en
-    enabled: false  # 404 Not Found，RSS 地址失效
-    keywords_filter: false
-    tags: [健康, 老龄化, 国际]
+- id: who_ageing
+  name: WHO Ageing
+  kind: rss
+  url: https://www.who.int/rss/feeds/ageing.xml
+  tier: T1
+  type: research
+  lang: en
+  enabled: false    # 404 Not Found，RSS 地址失效
+  keywords_filter: false
+  tags: [健康, 老龄化, 国际]
 
-  - id: helpage
-    name: HelpAge International
-    kind: rss
-    url: https://www.helpage.org/rss/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 采集到 0 条，RSS 格式可能已变更
-    keywords_filter: false
-    tags: [养老, 国际, 公益]
+- id: helpage
+  name: HelpAge International
+  kind: rss
+  url: https://www.helpage.org/rss/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 采集到 0 条，RSS 格式可能已变更
+  keywords_filter: false
+  tags: [养老, 国际, 公益]
 
   # -- 新增国际养老组织信源 --
-  - id: globalageing
-    name: Global Ageing Network
-    kind: rss
-    url: https://globalageing.org/feed/
-    tier: T1
-    type: overseas
-    lang: en
-    keywords_filter: false
-    tags: [老龄化, 国际, 组织]
+- id: globalageing
+  name: Global Ageing Network
+  kind: rss
+  url: https://globalageing.org/feed/
+  tier: T1
+  type: overseas
+  lang: en
+  keywords_filter: false
+  tags: [老龄化, 国际, 组织]
 
-  - id: ifa_ageing
-    name: International Federation on Ageing
-    kind: rss
-    url: https://ifa.ngo/feed/
-    tier: T1
-    type: overseas
-    lang: en
-    keywords_filter: false
-    tags: [老龄化, 国际, 组织]
+- id: ifa_ageing
+  name: International Federation on Ageing
+  kind: rss
+  url: https://ifa.ngo/feed/
+  tier: T1
+  type: overseas
+  lang: en
+  keywords_filter: false
+  tags: [老龄化, 国际, 组织]
 
-  - id: alzint
-    name: Alzheimer Disease International
-    kind: rss
-    url: https://www.alzint.org/feed/
-    tier: T1.5
-    type: overseas
-    lang: en
-    enabled: false  # 采集到 0 条，RSS 格式可能已变更
-    keywords_filter: false
-    tags: [认知症, 国际, 研究]
+- id: alzint
+  name: Alzheimer Disease International
+  kind: rss
+  url: https://www.alzint.org/feed/
+  tier: T1.5
+  type: overseas
+  lang: en
+  enabled: false    # 采集到 0 条，RSS 格式可能已变更
+  keywords_filter: false
+  tags: [认知症, 国际, 研究]
 
   # ━━━ T1 候选信源（待验证 WeRSS ID 后启用）━━━
   # 以下信源用于填补 finance_security / health_services / lifestyle 分类缺口
   # 微信公众号需先在 WeRSS (10.207.251.137:8001) 上获取 MP_WXS ID
 
   # -- 养老金融（填补 finance_security 缺口） --
-  - id: wx_yanglaojin50
-    name: 养老金融50人论坛
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3943710205
-    tier: T1
-    type: research
-    lang: zh
-    enabled: true  # 清华五道口智库，养老金融权威研究
-    keywords_filter: false
-    tags: [养老金融, 政策, 研究, 清华]
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
-
-  - id: wx_zgylbx
-    name: 中国医疗保险
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_2398482581
-    tier: T1
-    type: policy
-    lang: zh
-    enabled: false  # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
-    keywords_filter: false
-    tags: [医保, 长护险, 政策, 官方]
+- id: wx_yanglaojin50
+  name: 养老金融50人论坛
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3943710205
+  tier: T1
+  type: research
+  lang: zh
+  enabled: true    # 清华五道口智库，养老金融权威研究
+  keywords_filter: false
+  tags: [养老金融, 政策, 研究, 清华]
+- id: wx_zgylbx
+  name: 中国医疗保险
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_2398482581
+  tier: T1
+  type: policy
+  lang: zh
+  enabled: false    # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
+  keywords_filter: false
+  tags: [医保, 长护险, 政策, 官方]
 
   # -- 健康服务（填补 health_services 缺口） --
-  - id: wx_jkb_cn
-    name: 健康报
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_2394889101
-    tier: T1
-    type: media
-    lang: zh
-    enabled: true  # 国家卫健委主管，医养结合权威报道
-    keywords_filter: true
-    tags: [健康, 医养结合, 慢病, 卫健委]
-
-  # -- 养老生活（填补 lifestyle 缺口） --
-    enabled: false  # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
-
-  - id: wx_zglnjy
-    name: 中国老年教育
-    kind: rss
-    url: http://10.207.251.137:8001/rss/MP_WXS_3097875156
-    tier: T1.5
-    type: media
-    lang: zh
-    enabled: false  # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
-    keywords_filter: true
-    tags: [老年教育, 旅居, 文娱, 生活]
+- id: wx_jkb_cn
+  name: 健康报
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_2394889101
+  tier: T1
+  type: media
+  lang: zh
+  enabled: true    # 国家卫健委主管，医养结合权威报道
+  keywords_filter: true
+  tags: [健康, 医养结合, 慢病, 卫健委]
+- id: wx_zglnjy
+  name: 中国老年教育
+  kind: rss
+  url: http://10.207.251.137:8001/rss/MP_WXS_3097875156
+  tier: T1.5
+  type: media
+  lang: zh
+  enabled: false    # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
+  keywords_filter: true
+  tags: [老年教育, 旅居, 文娱, 生活]
 
   # -- 海外英文源 --
-  - id: chinapolicy_substack
-    name: China Policy Monitor
-    kind: rss
-    url: https://chinapolicy.substack.com/feed
-    tier: T1.5
-    type: overseas
-    lang: en
-    keywords_filter: true
-    tags: [政策, 长护险, 养老, 英文, 深度]
-    enabled: false  # 2026-08-09 运行版已禁用（低产出）
+- id: chinapolicy_substack
+  name: China Policy Monitor
+  kind: rss
+  url: https://chinapolicy.substack.com/feed
+  tier: T1.5
+  type: overseas
+  lang: en
+  keywords_filter: true
+  tags: [政策, 长护险, 养老, 英文, 深度]
+  enabled: false    # 2026-08-09 运行版已禁用（低产出）
 
   # ━━━ T1.5 热榜 + 关键词过滤 ━━━
 
-  - id: baidu_hot
-    name: 百度热搜
-    kind: rss
-    url: http://10.207.251.137:1200/baidu/top
-    tier: T1.5
-    type: hotlist
-    lang: zh
-    keywords_filter: true
-    tags: [热点, 综合]
+- id: baidu_hot
+  name: 百度热搜
+  kind: rss
+  url: http://10.207.251.137:1200/baidu/top
+  tier: T1.5
+  type: hotlist
+  lang: zh
+  keywords_filter: true
+  tags: [热点, 综合]
+  enabled: false
+  _auto_degraded_at: '2026-09-10'
 
-  - id: weibo_hot
-    name: 微博热搜
-    kind: rss
-    url: http://10.207.251.137:1200/weibo/search/hot
-    tier: T1.5
-    type: hotlist
-    lang: zh
-    keywords_filter: true
-    tags: [热点, 社交]
-    enabled: false  # 2026-08-09 自动降级：连续7天 0 精选，微博热搜与养老领域匹配度低
+- id: weibo_hot
+  name: 微博热搜
+  kind: rss
+  url: http://10.207.251.137:1200/weibo/search/hot
+  tier: T1.5
+  type: hotlist
+  lang: zh
+  keywords_filter: true
+  tags: [热点, 社交]
+  enabled: false    # 2026-08-09 自动降级：连续7天 0 精选，微博热搜与养老领域匹配度低
 
-  - id: zhihu_hot
-    name: 知乎热榜
-    kind: rss
-    url: http://10.207.251.137:1200/zhihu/hot
-    tier: T1.5
-    type: hotlist
-    lang: zh
-    keywords_filter: true
-    tags: [热点, 问答]
+- id: zhihu_hot
+  name: 知乎热榜
+  kind: rss
+  url: http://10.207.251.137:1200/zhihu/hot
+  tier: T1.5
+  type: hotlist
+  lang: zh
+  keywords_filter: true
+  tags: [热点, 问答]
 
-  - id: kr36_rsshub
-    name: 36氪
-    kind: rss
-    url: http://10.207.251.137:1200/36kr/newsflashes
-    tier: T1.5
-    type: hotlist
-    lang: zh
-    enabled: false  # 科技媒体，与养老领域无关
-    keywords_filter: true
-    tags: [科技, 创业, 投融资]
+- id: kr36_rsshub
+  name: 36氪
+  kind: rss
+  url: http://10.207.251.137:1200/36kr/newsflashes
+  tier: T1.5
+  type: hotlist
+  lang: zh
+  enabled: false    # 科技媒体，与养老领域无关
+  keywords_filter: true
+  tags: [科技, 创业, 投融资]
 
   # ━━━ T1.5 SearXNG 搜索 ━━━
 
-  - id: searxng_mp_elderly
-    name: SearXNG 养老公众号搜索
-    kind: searxng
-    url: http://10.207.251.137:8080
-    tier: T1.5
-    type: general
-    lang: zh
-    keywords_filter: false
-    selectors:
-      url_filter: mp.weixin.qq.com
-      search_queries:
-        - 养老 最新政策
-        - 银发经济 产业
-        - 智慧养老 适老化
-        - 长护险 最新
-        - 养老科技 融资
-        - AgeTech 银发
-    tags: [养老, 公众号, 搜索]
+- id: searxng_mp_elderly
+  name: SearXNG 养老公众号搜索
+  kind: searxng
+  url: http://10.207.251.137:8080
+  tier: T1.5
+  type: general
+  lang: zh
+  keywords_filter: false
+  selectors:
+    url_filter: mp.weixin.qq.com
+    search_queries:
+    - 养老 最新政策
+    - 银发经济 产业
+    - 智慧养老 适老化
+    - 长护险 最新
+    - 养老科技 融资
+    - AgeTech 银发
+  tags: [养老, 公众号, 搜索]
 
-  - id: searxng_japan_kaigo
-    name: SearXNG 日本介护搜索
-    kind: searxng
-    url: http://10.207.251.137:8080
-    tier: T1.5
-    type: overseas
-    lang: ja
-    enabled: false  # 133 条 0 精选，avg 1.3，纯噪声
-    keywords_filter: false
-    selectors:
-      search_queries:
-        - 介護 高齢者 最新
-        - 介護報酬 改定
-        - 認知症 ケア
-        - 高齢者 住宅
-        - 介護 人材
-        - シニア ビジネス
-    tags: [介护, 日本, 搜索]
+- id: searxng_japan_kaigo
+  name: SearXNG 日本介护搜索
+  kind: searxng
+  url: http://10.207.251.137:8080
+  tier: T1.5
+  type: overseas
+  lang: ja
+  enabled: false    # 133 条 0 精选，avg 1.3，纯噪声
+  keywords_filter: false
+  selectors:
+    search_queries:
+    - 介護 高齢者 最新
+    - 介護報酬 改定
+    - 認知症 ケア
+    - 高齢者 住宅
+    - 介護 人材
+    - シニア ビジネス
+  tags: [介护, 日本, 搜索]
 
-  - id: searxng_gov_policy
-    name: SearXNG 养老政策搜索
-    kind: searxng
-    url: http://10.207.251.137:8080
-    tier: T1.5
-    type: policy
-    lang: zh
-    keywords_filter: false
-    selectors:
-      search_queries:
-        - 民政部 养老服务
-        - 养老政策 最新
-        - 长护险 政策
-        - 养老补贴 政策
-        - 养老机构 管理
-    tags: [政策, 养老, 搜索]
+- id: searxng_gov_policy
+  name: SearXNG 养老政策搜索
+  kind: searxng
+  url: http://10.207.251.137:8080
+  tier: T1.5
+  type: policy
+  lang: zh
+  keywords_filter: false
+  selectors:
+    search_queries:
+    - 民政部 养老服务
+    - 养老政策 最新
+    - 长护险 政策
+    - 养老补贴 政策
+    - 养老机构 管理
+  tags: [政策, 养老, 搜索]
 
   # ━━━ T2 参考源 ━━━
 
-  - id: zhihuiyanglao
-    name: 智慧养老网
-    kind: web
-    url: https://www.zhihuiyanglao.com/
-    tier: T2
-    type: general
-    lang: zh
-    enabled: false  # SSL 证书过期，暂时禁用
-    keywords_filter: false
-    tags: [智慧养老, 科技]
+- id: zhihuiyanglao
+  name: 智慧养老网
+  kind: web
+  url: https://www.zhihuiyanglao.com/
+  tier: T2
+  type: general
+  lang: zh
+  enabled: false    # SSL 证书过期，暂时禁用
+  keywords_filter: false
+  tags: [智慧养老, 科技]
 
-  - id: elderask
-    name: 养老问问
-    kind: web
-    url: https://elderask.cn/
-    tier: T2
-    type: general
-    lang: zh
-    enabled: false  # 持续 0 条结果，选择器可能失效
-    keywords_filter: false
-    tags: [养老, AI]
+- id: elderask
+  name: 养老问问
+  kind: web
+  url: https://elderask.cn/
+  tier: T2
+  type: general
+  lang: zh
+  enabled: false    # 持续 0 条结果，选择器可能失效
+  keywords_filter: false
+  tags: [养老, AI]
