@@ -38,8 +38,13 @@ def _parse_date(entry) -> Optional[datetime]:
         t = entry.get(field)
         if t:
             try:
-                from time import mktime
-                return datetime.fromtimestamp(mktime(t), tz=timezone.utc)
+                # feedparser 的 *_parsed 是 **UTC** struct_time，必须用 timegm
+                # 按 UTC 解释。原先用 time.mktime 会被当成"本机本地时间"，
+                # 在 UTC+8 机器上产生固定 -8 小时偏移（且可跨日），
+                # 直接打坏 freshness_days 窗口与"今日新增"统计。
+                from calendar import timegm
+
+                return datetime.fromtimestamp(timegm(t), tz=timezone.utc)
             except Exception:
                 continue
     return None

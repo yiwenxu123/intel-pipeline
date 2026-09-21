@@ -61,6 +61,29 @@ def test_fetch_rss_basic(mock_get):
 
 
 @patch("engine.fetcher.rss_fetcher.httpx.get")
+def test_fetch_rss_pubdate_has_no_local_timezone_shift(mock_get):
+    """回归：pubDate 必须按 UTC 解释，不得被本机时区二次偏移。
+
+    历史 bug：`_parse_date` 用 `time.mktime()` 解释 feedparser 给出的 UTC
+    struct_time，而 mktime 按**本机本地时区**解释 —— 在 UTC+8 机器上造成
+    固定 -8 小时偏移，且可能把日期推回前一天，打坏 categories.yaml 的
+    freshness_days 窗口与"今日新增"统计。
+    """
+    mock_resp = MagicMock()
+    mock_resp.text = RSS_FEED_XML
+    mock_resp.raise_for_status.return_value = None
+    mock_get.return_value = mock_resp
+
+    source = SourceDef(id="test_rss", name="Test", kind=SourceKind.RSS,
+                       url="https://example.com/feed", lang="zh")
+    items = fetch_rss(source)
+
+    # feed 里写的是 Mon, 01 Jan 2024 08:00:00 GMT
+    assert items[0].published == datetime(2024, 1, 1, 8, 0, 0, tzinfo=timezone.utc)
+    assert items[0].published.utcoffset().total_seconds() == 0
+
+
+@patch("engine.fetcher.rss_fetcher.httpx.get")
 def test_fetch_rss_http_error(mock_get):
     from httpx import HTTPStatusError
 
@@ -452,3 +475,23 @@ def test_verify_dates_batch(mock_get):
     assert "https://example.com/article1" in result
     assert "https://example.com/article2" in result
     assert len(result) <= 3
+
+
+def test_parse_date_string_preserves_explicit_offset():
+    """回归：带 %z 偏移的 ISO 串不得被 replace 成 UTC 造成二次偏移。
+
+    历史 bug：`_parse_date_string` 用 `.replace(tzinfo=timezone.utc)` 覆盖了
+    strptime 已解析出的真实偏移，使 `+08:00` 的串被当成 UTC。
+    """
+    from engine.fetcher.date_extractor import _parse_date_string
+
+    dt = _parse_date_string("2026-06-06T12:00:00+08:00")
+    assert dt is not None
+    assert dt.utcoffset().total_seconds() == 8 * 3600
+    assert (dt.year, dt.month, dt.day, dt.hour) == (2026, 6, 6, 12)
+
+    # 无偏移的串仍按 UTC 处理（保持原语义）
+    naive = _parse_date_string("2026-06-06 12:00:00")
+    assert naive is not None
+    assert naive.utcoffset().total_seconds() == 0
+    assert (naive.year, naive.month, naive.day, naive.hour) == (2026, 6, 6, 12)

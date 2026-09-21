@@ -146,7 +146,11 @@ def _parse_date_string(s: str) -> Optional[datetime]:
         "%Y年%m月%d日",
     ]:
         try:
-            return datetime.strptime(s[:30], fmt).replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(s[:30], fmt)
+            # 带 %z 的格式已解析出真实偏移，不能再 replace 成 UTC（否则二次偏移）
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
         except ValueError:
             continue
 
