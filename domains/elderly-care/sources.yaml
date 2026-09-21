@@ -112,51 +112,51 @@ sources:
 - id: wx_guojiaminzheng
   name: 国家民政养老服务
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3942502210
+  url: http://10.207.251.86:8001/rss/MP_WXS_3942502210
   tier: T1
   type: policy
   lang: zh
   keywords_filter: false
   tags: [养老, 政策, 官方]
-  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
 
 - id: wx_agecare
   name: AgeCare养老服务
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3547311802
+  url: http://10.207.251.86:8001/rss/MP_WXS_3547311802
   tier: T1
   type: media
   lang: zh
   keywords_filter: true    # 260 条未评分，加过滤控制噪声（去除大会报名/推广内容）
   tags: [养老, 服务]
-  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
 
 - id: wx_agetravel
   name: AgeTravel银发文旅
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3559713809
+  url: http://10.207.251.86:8001/rss/MP_WXS_3559713809
   tier: T1
   type: media
   lang: zh
   keywords_filter: false
   tags: [养老, 文旅]
-  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
 
 - id: wx_aizhaohu
   name: 爱照护未来养老研究院
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3571366695
+  url: http://10.207.251.86:8001/rss/MP_WXS_3571366695
   tier: T1
   type: media
   lang: zh
   keywords_filter: false
   tags: [养老, 研究]
-  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
 
 - id: wx_yanglaoyjy
   name: 养老研究院
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3015041877
+  url: http://10.207.251.86:8001/rss/MP_WXS_3015041877
   tier: T1
   type: media
   lang: zh
@@ -164,12 +164,12 @@ sources:
   tags: [养老, 研究, 数据]
 
   # -- 新增公众号 --
-  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
 
 - id: wx_agetech
   name: AgeTech银发科技
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3524052466
+  url: http://10.207.251.86:8001/rss/MP_WXS_3524052466
   tier: T1
   type: media
   lang: zh
@@ -179,7 +179,7 @@ sources:
 - id: wx_ageclub
   name: AgeClub公众号
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3244487543
+  url: http://10.207.251.86:8001/rss/MP_WXS_3244487543
   tier: T1
   type: media
   lang: zh
@@ -190,7 +190,7 @@ sources:
 - id: wx_amuyanglao
   name: 阿沐养老
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3095321375
+  url: http://10.207.251.86:8001/rss/MP_WXS_3095321375
   tier: T1
   type: media
   lang: zh
@@ -201,40 +201,40 @@ sources:
 - id: wx_dongmaiwang
   name: 动脉网
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_2391320846
+  url: http://10.207.251.86:8001/rss/MP_WXS_2391320846
   tier: T1
   type: media
   lang: zh
   keywords_filter: true    # avg 4.5，加过滤提纯（去除脑机/减肥药等非养老内容）
   tags: [医疗, 养老科技, 投融资]
-  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
 
 - id: wx_changhuxqgc
   name: 长护险前哨观察
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3566830678
+  url: http://10.207.251.86:8001/rss/MP_WXS_3566830678
   tier: T1
   type: policy
   lang: zh
-  enabled: false    # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
   keywords_filter: false
   tags: [长护险, 政策]
 
 - id: wx_renminkk
   name: 人民康养
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3871693692
+  url: http://10.207.251.86:8001/rss/MP_WXS_3871693692
   tier: T1
   type: policy
   lang: zh
   keywords_filter: false
   tags: [康养, 官方]
-  enabled: false    # 2026-08-13 WeRSS 已移除（微信频控），待新方案接入
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
 
 - id: wx_yinfajingji_gc
   name: 银发经济观察
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3000076142
+  url: http://10.207.251.86:8001/rss/MP_WXS_3000076142
   tier: T1
   type: media
   lang: zh
@@ -244,7 +244,7 @@ sources:
 - id: wx_jiankangzg
   name: 健康中国
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_2396268083
+  url: http://10.207.251.86:8001/rss/MP_WXS_2396268083
   tier: T1
   type: policy
   lang: zh
@@ -487,15 +487,26 @@ sources:
   keywords_filter: false
   tags: [认知症, 国际, 研究]
 
+- id: wx_minzhengbu
+  name: 中国民政
+  kind: rss
+  url: http://10.207.251.86:8001/rss/MP_WXS_3940700768
+  tier: T1
+  type: policy
+  lang: zh
+  enabled: true    # 2026-09-21 新增：民政部官方号，养老/养老服务政策一手来源
+  keywords_filter: true    # 去除与养老无关的民政事务（婚姻/殡葬/区划）
+  tags: [民政部, 养老政策, 官方]
+
   # ━━━ T1 候选信源（待验证 WeRSS ID 后启用）━━━
   # 以下信源用于填补 finance_security / health_services / lifestyle 分类缺口
-  # 微信公众号需先在 WeRSS (10.207.251.137:8001) 上获取 MP_WXS ID
+  # 微信公众号需先在 WeRSS (10.207.251.86:8001) 上获取 MP_WXS ID
 
   # -- 养老金融（填补 finance_security 缺口） --
 - id: wx_yanglaojin50
   name: 养老金融50人论坛
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3943710205
+  url: http://10.207.251.86:8001/rss/MP_WXS_3943710205
   tier: T1
   type: research
   lang: zh
@@ -505,11 +516,11 @@ sources:
 - id: wx_zgylbx
   name: 中国医疗保险
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_2398482581
+  url: http://10.207.251.86:8001/rss/MP_WXS_2398482581
   tier: T1
   type: policy
   lang: zh
-  enabled: false    # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
   keywords_filter: false
   tags: [医保, 长护险, 政策, 官方]
 
@@ -517,7 +528,7 @@ sources:
 - id: wx_jkb_cn
   name: 健康报
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_2394889101
+  url: http://10.207.251.86:8001/rss/MP_WXS_2394889101
   tier: T1
   type: media
   lang: zh
@@ -527,11 +538,11 @@ sources:
 - id: wx_zglnjy
   name: 中国老年教育
   kind: rss
-  url: http://10.207.251.137:8001/rss/MP_WXS_3097875156
+  url: http://10.207.251.86:8001/rss/MP_WXS_3097875156
   tier: T1.5
   type: media
   lang: zh
-  enabled: false    # 2026-08-09 自动降级：WeRSS 抓取停更（6/27 后无新文），待 WeRSS 恢复后重新启用
+  enabled: true    # 2026-09-21 恢复启用：WeRSS 迁移至 Windows 实例(10.207.251.86)，微信读书通道实测可用
   keywords_filter: true
   tags: [老年教育, 旅居, 文娱, 生活]
 
