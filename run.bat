@@ -45,6 +45,14 @@ if "%CMD%"=="noon" (
     python -m engine.cli -d %DOMAIN% fetch --max-workers 4
     goto :end
 )
+REM hourly: 每小时错峰流水线（fetch -> filter -> export），保证 fetch 一定先于 filter 完成
+REM 配合 WeRSS 每整点采集（约 40s 跑完），本任务在 :20 触发
+if "%CMD%"=="hourly" (
+    python -m engine.cli -d %DOMAIN% fetch --max-workers 4
+    python -m engine.cli -d %DOMAIN% filter
+    python -m engine.cli -d %DOMAIN% export-intel
+    goto :end
+)
 if "%CMD%"=="evolve" (
     python -m engine.cli -d %DOMAIN% evolve all
     goto :end
@@ -58,5 +66,5 @@ if "%CMD%"=="dashboard" (
     goto :end
 )
 
-echo Commands: fetch ^| filter ^| report ^| pipe ^| nightly ^| noon ^| evolve ^| api ^| dashboard ^| export-intel
+echo Commands: fetch ^| filter ^| report ^| pipe ^| nightly ^| noon ^| hourly ^| evolve ^| api ^| dashboard ^| export-intel
 :end
