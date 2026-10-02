@@ -40,7 +40,7 @@
   - id: searxng_your_search
     name: 搜索描述
     kind: searxng
-    url: http://10.207.251.137:8080  # SearXNG 地址
+    url: http://<SEARXNG_HOST>:8080  # SearXNG 地址
     tier: T1.5
     lang: zh
     keywords_filter: false
