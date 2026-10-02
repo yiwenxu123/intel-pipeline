@@ -216,7 +216,7 @@ git add -A && git commit -m "feat: xxx" && git push
 
 # Windows 上拉取
 ssh <USER>@<LAN_IP>  # 真实地址见本地 secrets，勿入库
-cd C:\Users\yihong123\Projects\intel-pipeline
+cd C:\Users\<WIN_USER>\Projects\intel-pipeline
 git pull
 ```
 
