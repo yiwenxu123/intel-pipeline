@@ -125,6 +125,7 @@ def main() -> None:
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--exclude", default="", help="排除已有 gold 的 JSONL/URL 列表，避免 holdout 重叠")
     parser.add_argument("--output", default=str(PROJECT_ROOT / "data" / "gold" / "elderly-care.jsonl"))
     args = parser.parse_args()
 
@@ -132,6 +133,23 @@ def main() -> None:
     if not db_path.exists():
         raise SystemExit(f"数据库不存在: {db_path}")
     rows = _load_rows(db_path, args.domain, args.days)
+    if args.exclude:
+        exclude_path = Path(args.exclude)
+        excluded: set[str] = set()
+        if exclude_path.exists():
+            for line in exclude_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("{"):
+                    try:
+                        excluded.add(json.loads(line).get("url") or "")
+                    except json.JSONDecodeError:
+                        continue
+                else:
+                    excluded.add(line)
+            rows = [row for row in rows if row.get("url") not in excluded]
+        print(f"排除已有样本 URL：{len(excluded)} 个，剩余候选 {len(rows)} 条")
     if not rows:
         raise SystemExit(f"{args.domain} 最近 {args.days} 天没有已评分条目")
     picked = _sample(rows, args.limit, args.seed)

@@ -153,7 +153,7 @@ def _score_batch(
         _score_stats.increment("json_parse_failures", total_in_batch)
 
     # 解析结果不足时，逐条重试
-    if 0 < len(results) < total_in_batch:
+    if len(results) < total_in_batch:
         missing_indices = [j for j in range(total_in_batch) if j >= len(results)]
         _score_stats.increment("batch_retries")
         logger.warning(
