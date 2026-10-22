@@ -189,7 +189,7 @@
 
 | ID | 任务 | 工作量 | 负责人 | 依赖 | 验收标准 | 状态 |
 |---|---|---|---|---|---|---|
-| W2-01 | 建立养老金标集 100–200 条 | M | 你 + AI | — | 含“政策相关 vs 通用医疗噪音”难例；标注 select/reject | DOING 2026-10-22（抽样工具+指南已落；待生成/标注 100 条） |
+| W2-01 | 建立养老金标集 100–200 条 | M | 你 + AI | — | 含“政策相关 vs 通用医疗噪音”难例；标注 select/reject | DOING 2026-10-22（已生成 100 条：`data/gold/elderly-care-20261022.jsonl` + `-review.csv`；待人工标注） |
 | W2-02 | 评分标准 v2：从“行业决策”改为“内容可用” | M | 你 + AI | W2-01 | 五轴 + 内容类型权重 + 噪声上限；金标 precision@20 >= 70% | TODO（方向已拍板 2026-10-22：内容可用性） |
 | W2-03 | 双次评分 + 信源分级门槛 | M | AI | W2-02 | 两次独立评分取平均；T1/T1.5/T2 分门槛；成本 < ¥100/月 | TODO |
 | W2-04 | 事件聚簇 + 一事件一条 | M | AI | W1-04 | 抽 10 个事件，日报 Top10 无同事件重复 | TODO |
@@ -258,7 +258,7 @@
 | API 路径复核 | SSH 隧道 18900→Windows 8900 | `/health` 200；`/api/items` 200/44KB；确认 API 正常，直连 ZeroTier 丢包 |
 | Windows 部署 | Windows 拉取 `69c0eb0`；API-Boot 重新启用；API 重启为 PID 2620 | `/health` 200；导出 46 条，46/46 有 `title_zh`；keywords=114；auto_evolution=False |
 | W5-03a | `/api/overview` 跳过 `paused_domains` | 单测覆盖；china-africa 不再出现在 overview |
-| W2-01 工具 | 新增 `scripts/sample_gold_set.py` + `docs/GOLD_SET_GUIDE.md` | 本地抽样 10 条 smoke 通过；待生产生成 100 条 |
+| W2-01 工具 | 新增 `scripts/sample_gold_set.py` + `docs/GOLD_SET_GUIDE.md` | 生产生成 100 条（positive 26 / negative 24 / hard 50），另出 Excel 可读 CSV；待人工标注 |
 
 **注意**：以上改动只在 Mac 工作区，尚未部署到 Windows。生产生效需要 `git pull` + 重启 API/定时任务；索引在 Store 初始化时自动创建。Windows 本地 `keywords.yaml` 的 79 行是旧自动进化留下的，部署前不要直接合并，先备份再显式丢弃或替换。
 
@@ -384,4 +384,4 @@
 | 2026-10-22 | AI | 建立计划；写入实测基线；安装 Panorama MCP；确定 W0–W6 任务 |
 | 2026-10-22 | AI | 完成 W0-01/02/03、W1-01（intel-pipeline 侧）/02、W3-01（确认 AIHOT 缺失）、W5-02/03；修复 Windows SSH（ProxyJump）；211 tests passed；改动文件 ruff 全绿 |
 | 2026-10-22 | AI | 部署到 Windows：`69c0eb0`，API 重启 PID 2620，API-Boot 启用，导出 46/46 有 title_zh |
-| 2026-10-22 | AI | 完成 W5-03a；新增 W2-01 抽样工具与标注指南；212 tests passed |
+| 2026-10-22 | AI | 完成 W5-03a；新增 W2-01 抽样工具与标注指南；生产生成 100 条金标样本；212 tests passed |
