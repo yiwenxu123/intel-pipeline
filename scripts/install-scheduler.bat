@@ -20,6 +20,9 @@ schtasks /create /tn "IntelPipeline-NoonFilter" /sc daily /st 12:30 /tr "%RUN% f
 REM ── 完整流水线（含日报 / 进化后处理）──
 schtasks /create /tn "IntelPipeline-Daily" /sc daily /st 01:00 /tr "%RUN% pipe" /f >nul && echo [OK] 每天 01:00 完整流水线
 
+REM ── 数据新鲜度检查（08:00 前无新数据/采集失败时告警）──
+schtasks /create /tn "IntelPipeline-Freshness" /sc daily /st 08:00 /tr "%RUN% freshness" /f >nul && echo [OK] 每天 08:00 数据新鲜度检查
+
 REM ── 进化分析（每周一 02:00）──
 schtasks /create /tn "IntelPipeline-Evolve" /sc weekly /d MON /st 02:00 /tr "%RUN% evolve" /f >nul && echo [OK] 每周一 02:00 进化分析
 

@@ -447,6 +447,27 @@ def ops_weekly_report(notify: bool):
             console.print("⚠️  未配置 INTEL_NOTIFY_WEBHOOK，跳过推送")
 
 
+@ops.command("freshness-check")
+@click.option("--max-age-hours", default=8, type=int, help="允许的最大采集间隔（小时）")
+@click.option("--notify/--no-notify", default=False, help="异常时推送飞书")
+def ops_freshness_check(max_age_hours: int, notify: bool):
+    """检查数据新鲜度；异常时返回非零退出码。"""
+    from engine.config import settings
+    from engine.ops.freshness import run_freshness_check
+
+    result = run_freshness_check(settings.domain, max_age_hours=max_age_hours, notify=notify)
+    if result["healthy"]:
+        console.print(
+            f"✅ 数据新鲜度正常：最近采集 {result.get('last_fetch_time')}"
+            f"（{result.get('age_hours')}h 前）"
+        )
+        return
+    console.print("[red]❌ 数据新鲜度异常：[/]")
+    for problem in result.get("problems", []):
+        console.print(f"  • {problem}")
+    sys.exit(1)
+
+
 @ops.command("digest-backlog")
 @click.option("--target", default=50, help="目标待评分数")
 @click.option("--max-runs", default=10, help="最多运行 pipe 次数")

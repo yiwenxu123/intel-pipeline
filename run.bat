@@ -53,6 +53,10 @@ if "%CMD%"=="hourly" (
     python -m engine.cli -d %DOMAIN% export-intel
     goto :end
 )
+if "%CMD%"=="freshness" (
+    python -m engine.cli -d %DOMAIN% ops freshness-check --max-age-hours 8 --notify
+    goto :end
+)
 if "%CMD%"=="evolve" (
     python -m engine.cli -d %DOMAIN% evolve all
     goto :end
@@ -66,5 +70,5 @@ if "%CMD%"=="dashboard" (
     goto :end
 )
 
-echo Commands: fetch ^| filter ^| report ^| pipe ^| nightly ^| noon ^| hourly ^| evolve ^| api ^| dashboard ^| export-intel
+echo Commands: fetch ^| filter ^| report ^| pipe ^| nightly ^| noon ^| hourly ^| freshness ^| evolve ^| api ^| dashboard ^| export-intel
 :end

@@ -208,3 +208,32 @@ def notify_scoring_calibration(domain_name: str, calibrations: list[dict]) -> bo
     lines.append("")
     lines.append(f"审阅：`domains/{domain_name}/scoring.md`")
     return send_webhook(webhook_url, title, "\n".join(lines))
+
+
+def notify_freshness(domain_name: str, result: dict) -> bool:
+    """数据新鲜度异常告警。"""
+    webhook_url = settings.notify_webhook
+    if not webhook_url:
+        return False
+
+    display_name = DOMAIN_NAMES.get(domain_name, domain_name)
+    title = f"⚠️ {display_name}数据新鲜度告警"
+    lines = [
+        f"**最近采集**：{result.get('last_fetch_time') or '无记录'}",
+        f"**距今**：{result.get('age_hours') if result.get('age_hours') is not None else '?'} 小时"
+        f"（阈值 {result.get('max_age_hours')}h）",
+    ]
+    if result.get("last_pipe_at"):
+        lines.append(f"**最近 pipe**：{result['last_pipe_at']}")
+    if result.get("pipe_error"):
+        lines.append(f"**pipe 错误**：{result['pipe_error']}")
+    if result.get("fetch_errors"):
+        lines.append(f"**采集失败信源**：{result['fetch_errors']} 个")
+    lines.append("")
+    lines.append("**问题**：")
+    for problem in result.get("problems", []):
+        lines.append(f"- {problem}")
+    lines.append("")
+    lines.append("请检查 Windows 任务计划、采集日志或运行 `python -m engine.cli -d %s fetch`。" % domain_name)
+    return send_webhook(webhook_url, title, "\n".join(lines))
+
