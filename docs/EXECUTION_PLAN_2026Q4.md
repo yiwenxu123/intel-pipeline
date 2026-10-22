@@ -145,7 +145,7 @@
 | W0-02 | API 重查询性能诊断：定位 SQLite 锁/单 worker/大字段序列化 | M | AI | W0-00 | `/api/items?days=2&take=50` p95 < 3s，或正式决定冻结并移出产品面 | DONE 2026-10-22（query plan TEMP B-TREE；加索引；SSH 隧道实测 `/api/items` 200/44KB；Mac 直连 ZeroTier 丢包是主因；API 因无真实用户继续冻结） |
 | W0-03 | 统一“本周精选”口径：overview 与日报必须同源 | S | AI | W0-00 | 同一时刻两个入口数字一致；加一条回归检查 | DONE 2026-10-22（overview 与日报改用同一 weekly 数据，测试覆盖） |
 | W0-04 | 修正 `/api/stats?date=` 忽略日期的问题 | S | AI | — | 传 date 返回当日数据，或删除该参数并更新文档 | DROPPED（API 冻结，不再投资） |
-| W0-05 | 数据新鲜度/无数据告警 | S | AI | — | 08:00 前无新数据、或 last_fetch 超阈值时告警 | TODO |
+| W0-05 | 数据新鲜度/无数据告警 | S | AI | — | 08:00 前无新数据、或 last_fetch 超阈值时告警 | DONE 2026-10-22（freshness CLI + 08:00 任务；Windows smoke 正常） |
 | W0-06 | 备份/恢复演练 | S | 你 + AI | — | 10 分钟内完成一次恢复并校验条数 | TODO |
 
 ### W1 信号契约与路由（P0）
@@ -189,7 +189,7 @@
 
 | ID | 任务 | 工作量 | 负责人 | 依赖 | 验收标准 | 状态 |
 |---|---|---|---|---|---|---|
-| W2-01 | 建立养老金标集 100–200 条 | M | 你 + AI | — | 含“政策相关 vs 通用医疗噪音”难例；标注 select/reject | DOING 2026-10-22（已生成 100 条：`data/gold/elderly-care-20261022.jsonl` + `-review.csv`；待人工标注） |
+| W2-01 | 建立养老金标集 100–200 条 | M | 你 + AI | — | 含“政策相关 vs 通用医疗噪音”难例；标注 select/reject | DOING 2026-10-22（100 条样本 + `scripts/gold_review.html` 复核页已就绪；待人工标注） |
 | W2-02 | 评分标准 v2：从“行业决策”改为“内容可用” | M | 你 + AI | W2-01 | 五轴 + 内容类型权重 + 噪声上限；金标 precision@20 >= 70% | TODO（方向已拍板 2026-10-22：内容可用性） |
 | W2-03 | 双次评分 + 信源分级门槛 | M | AI | W2-02 | 两次独立评分取平均；T1/T1.5/T2 分门槛；成本 < ¥100/月 | TODO |
 | W2-04 | 事件聚簇 + 一事件一条 | M | AI | W1-04 | 抽 10 个事件，日报 Top10 无同事件重复 | TODO |
@@ -261,6 +261,8 @@
 | W2-01 工具 | 新增 `scripts/sample_gold_set.py` + `docs/GOLD_SET_GUIDE.md` | 生产生成 100 条（positive 26 / negative 24 / hard 50），另出 Excel 可读 CSV；待人工标注 |
 | W3-01a | 恢复 Hermes `aihot_collector.py`，改用 `aihot.news` RSS；过滤 48 小时外和通知条目 | 容器测试 50 条，source=aihot，无通知；`AIHOT_AVAILABLE=True` |
 | W3-03 启动 | 建立 7 天基线、14 天试点表、每日摘要脚本 `scripts/ai_pilot_summary.py` | 基线 83→48→20、3 选题；AIHOT-only 测试 50→50；首跑 10-23 03:00 |
+| W0-05 | 新增 `ops freshness-check`、飞书告警、`run.bat freshness`、08:00 任务 | CLI 异常退出码 1；Windows smoke 正常；任务 Ready，下次 10-23 08:00 |
+| W2-01 复核页 | 新增 `scripts/gold_review.html`，支持 JSONL 载入/1/2/3 判定/本地保存/导出 | 浏览器实测：100 条加载、判定与进度正常 |
 
 **注意**：以上改动只在 Mac 工作区，尚未部署到 Windows。生产生效需要 `git pull` + 重启 API/定时任务；索引在 Store 初始化时自动创建。Windows 本地 `keywords.yaml` 的 79 行是旧自动进化留下的，部署前不要直接合并，先备份再显式丢弃或替换。
 
@@ -388,4 +390,4 @@
 | 2026-10-22 | AI | 建立计划；写入实测基线；安装 Panorama MCP；确定 W0–W6 任务 |
 | 2026-10-22 | AI | 完成 W0-01/02/03、W1-01（intel-pipeline 侧）/02、W3-01（确认 AIHOT 缺失）、W5-02/03；修复 Windows SSH（ProxyJump）；211 tests passed；改动文件 ruff 全绿 |
 | 2026-10-22 | AI | 部署到 Windows：`69c0eb0`，API 重启 PID 2620，API-Boot 启用，导出 46/46 有 title_zh |
-| 2026-10-22 | AI | 完成 W5-03a；新增 W2-01 抽样工具与标注指南；生产生成 100 条金标样本；恢复 AIHOT collector（aihot.news，48h 50 条）；启动 W3-03 AI 两周试点；212 tests passed |
+| 2026-10-22 | AI | 完成 W5-03a；新增 W2-01 抽样工具与标注指南；生产生成 100 条金标样本；恢复 AIHOT collector（aihot.news，48h 50 条）；启动 W3-03 AI 两周试点；完成 W0-05 新鲜度告警与复核页；215 tests passed |
