@@ -6,8 +6,8 @@
 
 | 领域 | 代号 | 说明 |
 |---|---|---|
-| 银发产业 | `elderly-care` | 养老、大健康、银发经济 |
-| 中非经贸 | `china-africa` | 中非贸易、投资、政策 |
+| 银发产业 | `elderly-care` | 养老、大健康、银发经济（当前生产领域） |
+| 中非经贸 | `china-africa` | 已归档，仅作多领域模板；不参与自动调度 |
 
 ## 快速开始
 
@@ -76,6 +76,10 @@ python -m engine.cli -d elderly-care api
 # 生成 Dashboard
 run.bat dashboard
 ```
+
+## 当前执行计划
+
+- [2026 Q4 优化执行计划](docs/EXECUTION_PLAN_2026Q4.md) — 当前唯一执行口径
 
 ## Agent 接入
 

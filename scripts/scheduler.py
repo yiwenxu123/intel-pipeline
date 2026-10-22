@@ -13,14 +13,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 # 领域定时任务配置：(hour, minute, notify)
+# china-africa 已归档为领域模板，不参与自动调度；恢复时再登记。
 DOMAIN_SCHEDULES: dict[str, list[tuple[int, int, bool, str]]] = {
     "elderly-care": [
         (8, 0, True, "morning"),
         (20, 0, False, "evening"),
-    ],
-    "china-africa": [
-        (8, 30, True, "morning"),
-        (14, 0, False, "afternoon"),
     ],
 }
 

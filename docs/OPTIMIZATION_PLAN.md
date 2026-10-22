@@ -1,5 +1,7 @@
 # Intel Pipeline 优化计划
 
+> **历史文档（2026-06）**：当前执行以 [EXECUTION_PLAN_2026Q4.md](./EXECUTION_PLAN_2026Q4.md) 为准。
+
 > 基于 2026-06-11 健康度评估，覆盖 INTERNAL_PRODUCT_ROADMAP.md DoD 项 + 评估新发现的工程改进项。
 > 总原则：**先达 DoD，再提工程品质**。
 
