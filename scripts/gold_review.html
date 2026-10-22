@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>养老金标复核</title>
+<style>
+  :root { color-scheme: light; --bg:#f7f5f2; --card:#fff; --ink:#292524; --muted:#78716c; --line:#e7e5e4; --accent:#a16207; --ok:#15803d; --bad:#b91c1c; --warn:#a16207; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; }
+  header { position:sticky; top:0; z-index:2; background:rgba(247,245,242,.96); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); padding:14px 20px; }
+  .wrap { max-width:920px; margin:0 auto; }
+  h1 { font-size:18px; margin:0 0 10px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  button, .filebtn { border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:8px; padding:7px 11px; font:inherit; cursor:pointer; }
+  button:hover, .filebtn:hover { border-color:#a8a29e; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .filebtn { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .filebtn input { display:none; }
+  #status { margin-top:9px; color:var(--muted); font-size:13px; }
+  .progress { height:7px; background:#e7e5e4; border-radius:999px; margin-top:8px; overflow:hidden; }
+  .progress > div { height:100%; width:0; background:var(--accent); transition:width .15s ease; }
+  main { max-width:920px; margin:22px auto 60px; padding:0 20px; }
+  .empty { background:var(--card); border:1px dashed #d6d3d1; border-radius:14px; padding:32px; color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .meta { display:flex; flex-wrap:wrap; gap:8px; color:var(--muted); font-size:13px; margin-bottom:10px; }
+  .pill { border:1px solid var(--line); border-radius:999px; padding:2px 8px; }
+  h2 { font-size:22px; line-height:1.35; margin:6px 0 12px; }
+  .summary { background:#fafaf9; border-left:3px solid var(--accent); padding:10px 12px; border-radius:0 8px 8px 0; white-space:pre-wrap; }
+  details { margin-top:14px; }
+  summary { cursor:pointer; color:var(--muted); }
+  .content { white-space:pre-wrap; color:#44403c; font-size:14px; margin-top:8px; max-height:360px; overflow:auto; }
+  a { color:#1d4ed8; word-break:break-all; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+  .actions button[data-decision="select"] { border-color:#86efac; }
+  .actions button[data-decision="reject"] { border-color:#fca5a5; }
+  .actions button[data-decision="either"] { border-color:#fde68a; }
+  .actions button.active[data-decision="select"] { background:#dcfce7; border-color:var(--ok); }
+  .actions button.active[data-decision="reject"] { background:#fee2e2; border-color:var(--bad); }
+  .actions button.active[data-decision="either"] { background:#fef3c7; border-color:var(--warn); }
+  label.notes { display:block; margin-top:16px; color:var(--muted); font-size:13px; }
+  textarea { width:100%; margin-top:5px; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:inherit; resize:vertical; }
+  .hint { color:var(--muted); font-size:12px; margin-top:10px; }
+  kbd { border:1px solid #d6d3d1; border-bottom-width:2px; border-radius:4px; padding:0 4px; font-size:12px; background:#fafaf9; }
+  .done { color:var(--ok); font-weight:600; }
+  @media (max-width:600px) { h2 { font-size:18px; } .card { padding:16px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>养老金标复核</h1>
+    <div class="bar">
+      <label class="filebtn">载入 JSONL<input type="file" id="fileInput" accept=".jsonl,.json,application/json"></label>
+      <button id="exportJsonl" disabled>导出标注 JSONL</button>
+      <button id="exportCsv" disabled>导出 CSV</button>
+      <button id="nextUnlabeled" disabled>下一个未标注</button>
+      <button id="clear" disabled>清除本地记录</button>
+    </div>
+    <div id="status">请选择 data/gold/elderly-care-20261022.jsonl</div>
+    <div class="progress"><div id="bar"></div></div>
+  </div>
+</header>
+<main>
+  <section id="empty" class="empty">
+    <p>载入 JSONL 后开始逐条复核。</p>
+    <p>快捷键：<kbd>1</kbd> 可写 · <kbd>2</kbd> 不写 · <kbd>3</kbd> 两可 · <kbd>←</kbd>/<kbd>→</kbd> 前后切换。</p>
+    <p>标注会保存在当前浏览器的 localStorage；完成后请点“导出标注 JSONL”，把文件交回。</p>
+  </section>
+  <section id="card" class="card" hidden>
+    <div class="meta" id="meta"></div>
+    <h2 id="title"></h2>
+    <div class="summary" id="summary"></div>
+    <details id="contentBox">
+      <summary>正文摘录</summary>
+      <div class="content" id="content"></div>
+    </details>
+    <p><a id="url" target="_blank" rel="noopener">打开原文</a></p>
+    <div class="actions">
+      <button data-decision="select">1 可写</button>
+      <button data-decision="reject">2 不写</button>
+      <button data-decision="either">3 两可</button>
+      <button id="prev">← 上一条</button>
+      <button id="next">下一条 →</button>
+    </div>
+    <label class="notes">备注（可选）<textarea id="notes" rows="2" placeholder="为什么可写/不可写？"></textarea></label>
+    <div class="hint">当前条目会实时保存在浏览器；换浏览器或清缓存会丢，完成后请导出。</div>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { items: [], index: 0, fileName: "", key: "" };
+  const decisions = ["select", "reject", "either"];
+
+  function storageKey(name) { return `gold-review:v1:${name || "default"}`; }
+
+  function loadSaved() {
+    try {
+      const raw = localStorage.getItem(state.key);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      const map = saved.items || {};
+      for (const item of state.items) {
+        const d = map[item.case_id];
+        if (d) {
+          item.gold = item.gold || {};
+          item.gold.decision = d.decision || "";
+          item.gold.notes = d.notes || "";
+        }
+      }
+      state.index = Math.min(Math.max(0, saved.index || 0), Math.max(0, state.items.length - 1));
+    } catch (e) { console.warn("load saved failed", e); }
+  }
+
+  function save() {
+    try {
+      const map = {};
+      for (const item of state.items) {
+        map[item.case_id] = { decision: item.gold?.decision || "", notes: item.gold?.notes || "" };
+      }
+      localStorage.setItem(state.key, JSON.stringify({ items: map, index: state.index }));
+    } catch (e) { console.warn("save failed", e); }
+  }
+
+  function parseItems(text) {
+    const trimmed = text.trim();
+    let raw;
+    if (trimmed.startsWith("[")) raw = JSON.parse(trimmed);
+    else raw = trimmed.split(/\r?\n/).filter(Boolean).map((line, i) => {
+      try { return JSON.parse(line); } catch (e) { throw new Error(`第 ${i + 1} 行不是合法 JSON`); }
+    });
+    return raw.map((item, i) => {
+      item.gold = item.gold || {};
+      item.gold.decision = item.gold.decision || "";
+      item.gold.notes = item.gold.notes || "";
+      item.case_id = item.case_id || `case-${i + 1}`;
+      return item;
+    });
+  }
+
+  function counts() {
+    const c = { select: 0, reject: 0, either: 0, unlabeled: 0 };
+    for (const item of state.items) {
+      const d = item.gold?.decision;
+      if (decisions.includes(d)) c[d] += 1;
+      else c.unlabeled += 1;
+    }
+    return c;
+  }
+
+  function updateStatus() {
+    const c = counts();
+    const total = state.items.length;
+    const done = total - c.unlabeled;
+    $("status").textContent = total
+      ? `${state.fileName} · 已标注 ${done}/${total} · 可写 ${c.select} / 不写 ${c.reject} / 两可 ${c.either}`
+      : "请选择 data/gold/elderly-care-20261022.jsonl";
+    $("bar").style.width = total ? `${Math.round((done / total) * 100)}%` : "0";
+    for (const id of ["exportJsonl", "exportCsv", "nextUnlabeled", "clear"]) $(id).disabled = !total;
+  }
+
+  function render() {
+    const total = state.items.length;
+    $("empty").hidden = total > 0;
+    $("card").hidden = total === 0;
+    if (!total) { updateStatus(); return; }
+    const item = state.items[state.index];
+    const meta = [
+      `${state.index + 1}/${total}`,
+      item.sample_group || "unknown",
+      `${Number(item.score || 0).toFixed(1)} 分`,
+      item.category || "未分类",
+      item.source_id || "unknown",
+    ];
+    const metaEl = $("meta");
+    metaEl.replaceChildren(...meta.map((text) => {
+      const span = document.createElement("span");
+      span.className = "pill";
+      span.textContent = text;
+      return span;
+    }));
+    $("title").textContent = item.title || item.title_original || "（无标题）";
+    $("summary").textContent = item.summary || "（无摘要）";
+    const content = item.content || "";
+    $("contentBox").hidden = !content;
+    $("content").textContent = content;
+    const url = $("url");
+    if (item.url && /^https?:\/\//i.test(item.url)) {
+      url.href = item.url;
+      url.textContent = "打开原文";
+      url.hidden = false;
+    } else {
+      url.removeAttribute("href");
+      url.hidden = true;
+    }
+    $("notes").value = item.gold?.notes || "";
+    document.querySelectorAll(".actions button[data-decision]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.decision === item.gold?.decision);
+    });
+    updateStatus();
+  }
+
+  function setDecision(decision) {
+    if (!state.items.length) return;
+    const item = state.items[state.index];
+    item.gold = item.gold || {};
+    item.gold.decision = decision;
+    item.gold.notes = $("notes").value;
+    save();
+    if (state.index < state.items.length - 1) state.index += 1;
+    render();
+  }
+
+  function move(delta) {
+    if (!state.items.length) return;
+    state.index = Math.min(Math.max(0, state.index + delta), state.items.length - 1);
+    save();
+    render();
+  }
+
+  function nextUnlabeled() {
+    const total = state.items.length;
+    for (let step = 1; step <= total; step++) {
+      const idx = (state.index + step) % total;
+      if (!decisions.includes(state.items[idx].gold?.decision)) {
+        state.index = idx;
+        save();
+        render();
+        return;
+      }
+    }
+    alert("全部条目都已标注。");
+  }
+
+  function download(name, content, type) {
+    const blob = new Blob([content], { type });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  function baseName() {
+    return (state.fileName || "gold").replace(/\.(jsonl|json)$/i, "");
+  }
+
+  function exportJsonl() {
+    const lines = state.items.map((item) => JSON.stringify(item));
+    download(`${baseName()}-labeled.jsonl`, lines.join("\n") + "\n", "application/x-ndjson");
+  }
+
+  function csvCell(value) {
+    const text = value == null ? "" : String(value);
+    return `"${text.replace(/"/g, '""').replace(/\r?\n/g, " ")}"`;
+  }
+
+  function exportCsv() {
+    const headers = ["case_id", "sample_group", "score", "category", "source_id", "title", "summary", "url", "decision", "notes"];
+    const rows = state.items.map((item) => [
+      item.case_id, item.sample_group, item.score, item.category, item.source_id,
+      item.title, item.summary, item.url, item.gold?.decision || "", item.gold?.notes || "",
+    ].map(csvCell).join(","));
+    download(`${baseName()}-labeled.csv`, "\ufeff" + [headers.join(","), ...rows].join("\r\n"), "text/csv;charset=utf-8");
+  }
+
+  $("fileInput").addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      state.items = parseItems(text);
+      state.fileName = file.name;
+      state.key = storageKey(file.name);
+      state.index = 0;
+      loadSaved();
+      render();
+      event.target.style.display = "none";
+      document.body.tabIndex = -1;
+      document.body.focus();
+    } catch (e) {
+      alert(`载入失败：${e.message}`);
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  document.querySelectorAll(".actions button[data-decision]").forEach((btn) => {
+    btn.addEventListener("click", () => setDecision(btn.dataset.decision));
+  });
+  $("prev").addEventListener("click", () => move(-1));
+  $("next").addEventListener("click", () => move(1));
+  $("nextUnlabeled").addEventListener("click", nextUnlabeled);
+  $("exportJsonl").addEventListener("click", exportJsonl);
+  $("exportCsv").addEventListener("click", exportCsv);
+  $("clear").addEventListener("click", () => {
+    if (!confirm("清除当前文件在浏览器里的标注记录？")) return;
+    try { localStorage.removeItem(state.key); } catch (e) {}
+    for (const item of state.items) item.gold = { decision: "", notes: "" };
+    state.index = 0;
+    render();
+  });
+  $("notes").addEventListener("input", () => {
+    if (!state.items.length) return;
+    state.items[state.index].gold.notes = $("notes").value;
+    save();
+  });
+  window.addEventListener("keydown", (event) => {
+    if (!state.items.length) return;
+    const tag = (event.target?.tagName || "").toLowerCase();
+    if (tag === "textarea" || tag === "input") return;
+    if (event.key === "1") { event.preventDefault(); setDecision("select"); }
+    else if (event.key === "2") { event.preventDefault(); setDecision("reject"); }
+    else if (event.key === "3") { event.preventDefault(); setDecision("either"); }
+    else if (event.key === "ArrowLeft" || event.key === "j") { event.preventDefault(); move(-1); }
+    else if (event.key === "ArrowRight" || event.key === "k") { event.preventDefault(); move(1); }
+  });
+  updateStatus();
+})();
+</script>
+</body>
+</html>
