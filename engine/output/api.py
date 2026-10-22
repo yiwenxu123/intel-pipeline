@@ -450,6 +450,8 @@ def api_overview():
         if not domain_dir.is_dir() or not (domain_dir / "sources.yaml").exists():
             continue
         domain = domain_dir.name
+        if settings.is_domain_paused(domain):
+            continue
         meta = _DOMAIN_LABELS.get(domain, {"name": domain, "port": settings.api_port})
         db_path = settings.project_root / f"data/intel-{domain}.db"
         if not db_path.exists():

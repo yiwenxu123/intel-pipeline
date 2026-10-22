@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from engine.models import RawItem, ScoredItem
-from engine.store import Store
 
 
 @pytest.fixture
@@ -193,6 +192,15 @@ def test_overview(client):
     data = r.json()
     assert "domains" in data
     assert isinstance(data["domains"], list)
+
+
+def test_overview_skips_paused_domain(client, monkeypatch):
+    import engine.config as cfg
+
+    monkeypatch.setattr(cfg.settings, "paused_domains", "test-domain")
+    r = client.get("/api/overview")
+    assert r.status_code == 200
+    assert all(d["domain"] != "test-domain" for d in r.json()["domains"])
 
 
 def test_export_markdown(client):
