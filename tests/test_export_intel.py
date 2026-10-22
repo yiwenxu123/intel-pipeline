@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from pathlib import Path
 
+from engine.config import settings
 from engine.ops.export_intel import export_intel_data
 from tests.test_store import _make_raw, _make_scored
 
@@ -83,3 +85,43 @@ def test_export_atomic_write_no_tmp_left(store, tmp_path):
     export_intel_data("elderly-care", days=2, output=out)
     assert out.exists()
     assert not out.with_suffix(out.suffix + ".tmp").exists()
+
+
+def test_export_prefers_chinese_title_and_carries_schema(store, tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "project_root", Path(__file__).resolve().parents[1])
+    raw = _make_raw(
+        source_id="stat_news",
+        title="English title",
+        url="https://example.com/english-title",
+        content="English body",
+        lang="en",
+    )
+    rid = store.save_raw(raw)
+    scored = _make_scored(raw, score=8.0, category="industry")
+    scored.summary = "中文摘要"
+    scored.reason = "对养老机构运营者有用"
+    scored.title_display = "中文标题"
+    scored.headline = "中文标题"
+    store.save_scored(rid, "elderly-care", scored)
+
+    payload, out = export_intel_data(
+        "elderly-care",
+        days=7,
+        output=tmp_path / "intel-data.json",
+        project_id="wulingshengming",
+        account_id="wulingshengming",
+    )
+
+    assert out.exists()
+    assert payload["schema_version"] == 1
+    assert payload["project_id"] == "wulingshengming"
+    item = payload["items"][0]
+    assert item["title"] == "中文标题"
+    assert item["title_zh"] == "中文标题"
+    assert item["title_original"] == "English title"
+    assert item["language"] == "en"
+    assert item["source_tier"] == "T2"
+    assert item["source_name"] == "STAT News"
+    assert item["key_points"] == []
+    assert item["score_breakdown"] is None
+    assert item["event_id"] is None

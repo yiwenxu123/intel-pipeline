@@ -65,9 +65,11 @@ class Store:
 
             CREATE INDEX IF NOT EXISTS idx_raw_url_hash ON raw_items(url_hash);
             CREATE INDEX IF NOT EXISTS idx_raw_fetched_date ON raw_items(fetched_at);
+            CREATE INDEX IF NOT EXISTS idx_raw_published ON raw_items(published);
             CREATE INDEX IF NOT EXISTS idx_scored_domain ON scored_items(domain);
             CREATE INDEX IF NOT EXISTS idx_scored_created ON scored_items(created_at);
             CREATE INDEX IF NOT EXISTS idx_scored_domain_created ON scored_items(domain, created_at);
+            CREATE INDEX IF NOT EXISTS idx_scored_domain_score ON scored_items(domain, score DESC);
 
             CREATE TABLE IF NOT EXISTS source_metrics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -268,7 +270,7 @@ class Store:
             raise ValueError(f"Invalid order_by: {order_by}")
         sql = """
             SELECT s.*, r.title, r.url, r.content, r.full_text, r.published, r.source_id,
-                   COALESCE(r.published, r.fetched_at) as effective_date
+                   r.lang, COALESCE(r.published, r.fetched_at) as effective_date
             FROM scored_items s
             JOIN raw_items r ON s.raw_id = r.id
             WHERE s.domain = ? AND s.score >= ?
@@ -680,6 +682,17 @@ class Store:
         this_w = _sum_period(this_week_start, today.isoformat())
         last_w = _sum_period(last_week_start, last_week_end)
 
+        # 日报的周趋势来自 scored_items；overview 也用它，避免两个入口数字打架。
+        weekly = self._weekly_scored(domain, days=21)
+        this_row = weekly[-1] if weekly else None
+        last_row = weekly[-2] if len(weekly) >= 2 else None
+        this_w["selected"] = int((this_row or {}).get("selected_items") or 0)
+        last_w["selected"] = int((last_row or {}).get("selected_items") or 0)
+        if this_row:
+            this_w["scored"] = int(this_row.get("total_items") or 0)
+        if last_row:
+            last_w["scored"] = int(last_row.get("total_items") or 0)
+
         narrative = ""
         if last_w["selected"] == 0:
             narrative = f"本周精选 {this_w['selected']} 条（上周无精选）"
@@ -785,10 +798,9 @@ class Store:
 
     # ── 趋势统计 ──
 
-    def get_trends(self, domain: str, days: int = 30) -> dict:
+    def _weekly_scored(self, domain: str, days: int = 30) -> list[dict]:
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
-
-        weekly = self.conn.execute(
+        rows = self.conn.execute(
             """SELECT strftime('%Y-%W', created_at) as week,
                       MIN(created_at) as week_start,
                       COUNT(*) as total_items,
@@ -799,6 +811,12 @@ class Store:
                GROUP BY week ORDER BY week""",
             (domain, cutoff),
         ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_trends(self, domain: str, days: int = 30) -> dict:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+        weekly = self._weekly_scored(domain, days)
 
         monthly = self.conn.execute(
             """SELECT strftime('%Y-%m', created_at) as month,
@@ -845,7 +863,7 @@ class Store:
             snapshot_weekly = []
 
         return {
-            "weekly": [dict(r) for r in weekly],
+            "weekly": weekly,
             "monthly": [dict(r) for r in monthly],
             "category_breakdown": [dict(r) for r in cat_breakdown],
             "snapshot_daily": snapshot_daily,
