@@ -224,8 +224,11 @@ def report(date: str | None):
 @click.option("--days", default=2, help="导出最近 N 天发布的精选条目")
 @click.option("--min-score", default=5.5, help="最低分数")
 @click.option("--take", default=200, help="最多导出条数")
+@click.option("--project", "project_id", default="", help="内容项目 ID（多项目路由用）")
+@click.option("--account", "account_id", default="", help="账号 ID（多账号路由用）")
 @click.option("--output", default=None, help="输出路径（默认 data/intel-data.json）")
-def export_intel(days: int, min_score: float, take: int, output: str | None):
+def export_intel(days: int, min_score: float, take: int, project_id: str, account_id: str,
+                 output: str | None):
     """导出精选条目为 intel-data.json（供内容运营agent IntelPipelineSource 摄入）。"""
     from pathlib import Path
 
@@ -239,6 +242,8 @@ def export_intel(days: int, min_score: float, take: int, output: str | None):
         min_score=min_score,
         take=take,
         output=Path(output) if output else None,
+        project_id=project_id,
+        account_id=account_id,
     )
     console.print(f"✅ 已导出 {payload['count']} 条精选（≥{min_score} 分，近 {days} 天）→ {out_path}")
     if payload["count"] == 0:
@@ -598,10 +603,10 @@ def evolve_scoring(days: int):
 
 @evolve.command()
 @click.option("--days", default=7, help="分析天数")
-@click.option("--apply", "do_apply", is_flag=True, help="直接追加到 keywords.yaml（跳过验证）")
-@click.option("--stage", is_flag=True, default=True, help="暂存建议供下次管道自动验证（默认）")
+@click.option("--apply", "do_apply", is_flag=True, help="直接追加到 keywords.yaml（跳过验证，需人工确认）")
+@click.option("--stage", is_flag=True, default=False, help="暂存建议供人工审核（默认只报告）")
 def keywords(days: int, do_apply: bool, stage: bool):
-    """关键词扩展分析。默认暂存建议，下次管道自动验证效果。"""
+    """关键词扩展分析。默认只报告；应用/暂存需显式指定。"""
     from engine.config import settings
     from engine.evolution.keyword_expander import save_keyword_report, suggest_new_keywords, suggest_keywords_yaml
     domain = settings.domain
@@ -658,25 +663,8 @@ def evolve_all(days: int):
     path3 = save_keyword_report(domain, days)
     console.print(f"  ✅ 关键词分析: {path3}")
 
-    # 自动应用进化建议
-    applied = []
-    try:
-        from engine.evolution.keyword_expander import suggest_new_keywords
-        from pathlib import Path
-        import yaml
-        suggestions = suggest_new_keywords(domain, days)
-        if suggestions:
-            kw_path = settings.project_root / "domains" / domain / "keywords.yaml"
-            if kw_path.exists():
-                data = yaml.safe_load(kw_path.read_text(encoding="utf-8"))
-                existing = set(data.get("keywords", []))
-                new_kw = [k for k in suggestions if k not in existing and not any(e in k or k in e for e in existing)]
-                if new_kw:
-                    data.setdefault("keywords", []).extend(new_kw)
-                    kw_path.write_text(yaml.dump(data, allow_unicode=True, default_flow_style=False), encoding="utf-8")
-                    applied.append(f"新增 {len(new_kw)} 个关键词: {'、'.join(new_kw[:5])}")
-    except Exception as e:
-        applied.append(f"关键词添加失败: {e}")
+    # 只生成报告，不自动写入 keywords.yaml。应用需显式 evolve keywords --apply 并人工确认。
+    console.print("  ℹ️ 进化分析只生成报告；如需应用关键词，请运行 evolve keywords --apply")
 
     try:
         from engine.evolution.source_analyzer import analyze_source_quality
@@ -686,10 +674,6 @@ def evolve_all(days: int):
                 console.print(f"  \u26a0\ufe0f 休眠信源: {s['source_id']}（{s['total']}条采集，0精选）")
     except Exception as e:
         console.print(f"  \u26a0\ufe0f 信源检测失败: {e}")
-
-    if applied:
-        for a in applied:
-            console.print(f"  \U0001f527 {a}")
 
     console.print("\n🎉 进化分析完成！")
 

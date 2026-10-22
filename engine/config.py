@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     # 精选后是否运行简报提炼（headline/lead/takeaway）
     briefing_enabled: bool = True
 
+    # 自动进化（关键词合并 / 评分校准注入）：默认关闭，只保留人工触发的分析报告
+    auto_evolution_enabled: bool = False
+
     # API 写操作 Token（留空则不校验 POST，仅建议内网使用）
     api_token: str = ""
 

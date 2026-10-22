@@ -154,43 +154,49 @@ def run_full_pipeline(domain: DomainConfig, notify: bool = True, max_items: int 
         except Exception as e:
             logger.error(f"[{domain.name}] 生命周期检查失败: {e}")
 
-        # ── 4.5 关键词暂存验证 ──
-        try:
-            from engine.evolution.keyword_staging import get_staged_keywords, record_trial_result, check_and_apply
-            staged_kws = get_staged_keywords(domain.name)
-            if staged_kws and result.filter:
-                current_rate = result.filter.pre_filter_passed / max(result.filter.pre_filter_total, 1)
-                hist = store.conn.execute(
-                    "SELECT AVG(yield_rate) as avg FROM source_metrics WHERE domain = ?",
-                    (domain.name,),
-                ).fetchone()
-                hist_avg = hist["avg"] if hist and hist["avg"] else 0.05
-                record_trial_result(domain.name, current_rate, hist_avg)
-                kw_result = check_and_apply(domain.name)
-                if kw_result.get("action") == "applied":
-                    logger.info(f"[{domain.name}] 关键词自动验证通过，已合并 {len(kw_result.get('keywords', []))} 个")
-                elif kw_result.get("action") == "rejected":
-                    logger.info(f"[{domain.name}] 关键词自动验证未通过，已回滚")
-        except Exception as e:
-            logger.error(f"[{domain.name}] 关键词验证失败: {e}")
+        # ── 4.5 关键词暂存验证（仅显式开启自动进化时） ──
+        if settings.auto_evolution_enabled:
+            try:
+                from engine.evolution.keyword_staging import get_staged_keywords, record_trial_result, check_and_apply
+                staged_kws = get_staged_keywords(domain.name)
+                if staged_kws and result.filter:
+                    current_rate = result.filter.pre_filter_passed / max(result.filter.pre_filter_total, 1)
+                    hist = store.conn.execute(
+                        "SELECT AVG(yield_rate) as avg FROM source_metrics WHERE domain = ?",
+                        (domain.name,),
+                    ).fetchone()
+                    hist_avg = hist["avg"] if hist and hist["avg"] else 0.05
+                    record_trial_result(domain.name, current_rate, hist_avg)
+                    kw_result = check_and_apply(domain.name)
+                    if kw_result.get("action") == "applied":
+                        logger.info(f"[{domain.name}] 关键词自动验证通过，已合并 {len(kw_result.get('keywords', []))} 个")
+                    elif kw_result.get("action") == "rejected":
+                        logger.info(f"[{domain.name}] 关键词自动验证未通过，已回滚")
+            except Exception as e:
+                logger.error(f"[{domain.name}] 关键词验证失败: {e}")
+        else:
+            logger.info(f"[{domain.name}] 自动进化已关闭，跳过关键词暂存验证")
 
-        # ── 4.6 评分校准检查 ──
-        try:
-            from engine.evolution.scoring_injector import run_calibration_check
-            cal_result = run_calibration_check(domain.name, days=7)
-            cal_count = len(cal_result.get("calibrations", []))
-            if cal_count > 0:
-                logger.info(f"[{domain.name}] 生成 {cal_count} 条评分校准指令，下次评分自动注入")
-                if settings.notify_webhook:
-                    try:
-                        from engine.output.notifier import notify_scoring_calibration
-                        notify_scoring_calibration(domain.name, cal_result.get("calibrations", []))
-                    except Exception as notify_err:
-                        logger.warning(f"[{domain.name}] 评分校准推送失败: {notify_err}")
-            else:
-                logger.info(f"[{domain.name}] 评分分布正常，无需校准")
-        except Exception as e:
-            logger.error(f"[{domain.name}] 评分校准检查失败: {e}")
+        # ── 4.6 评分校准检查（仅显式开启自动进化时） ──
+        if settings.auto_evolution_enabled:
+            try:
+                from engine.evolution.scoring_injector import run_calibration_check
+                cal_result = run_calibration_check(domain.name, days=7)
+                cal_count = len(cal_result.get("calibrations", []))
+                if cal_count > 0:
+                    logger.info(f"[{domain.name}] 生成 {cal_count} 条评分校准指令，下次评分自动注入")
+                    if settings.notify_webhook:
+                        try:
+                            from engine.output.notifier import notify_scoring_calibration
+                            notify_scoring_calibration(domain.name, cal_result.get("calibrations", []))
+                        except Exception as notify_err:
+                            logger.warning(f"[{domain.name}] 评分校准推送失败: {notify_err}")
+                else:
+                    logger.info(f"[{domain.name}] 评分分布正常，无需校准")
+            except Exception as e:
+                logger.error(f"[{domain.name}] 评分校准检查失败: {e}")
+        else:
+            logger.info(f"[{domain.name}] 自动进化已关闭，跳过评分校准")
 
         # ── 5. 推送通知 ──
         if notify:

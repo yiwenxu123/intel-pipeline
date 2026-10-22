@@ -241,11 +241,14 @@ def score_items(
 
     reset_score_stats()
 
-    # 注入评分校准指令（如果有）
-    try:
-        from engine.evolution.scoring_injector import inject_calibration
-        system = inject_calibration(domain.name, domain.scoring_prompt)
-    except Exception:
+    # 注入评分校准指令（仅显式开启自动进化时）
+    if settings.auto_evolution_enabled:
+        try:
+            from engine.evolution.scoring_injector import inject_calibration
+            system = inject_calibration(domain.name, domain.scoring_prompt)
+        except Exception:
+            system = domain.scoring_prompt
+    else:
         system = domain.scoring_prompt
 
     batches = [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
