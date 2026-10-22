@@ -153,7 +153,7 @@
 | ID | 任务 | 工作量 | 负责人 | 依赖 | 验收标准 | 状态 |
 |---|---|---|---|---|---|---|
 | W1-01 | 定义 Signal Schema v1 | M | 你 + AI | — | 一份 schema + 示例；intel-pipeline/Hermes/content-ops 三端通过校验 | DOING 2026-10-22（schema + intel-pipeline 导出已落；Hermes/content-ops 校验待做） |
-| W1-02 | 下游标题优先中文 | S | AI | W1-01 | 有中文翻译的条目 100% 优先 `title_zh`；无翻译时保留 `title_original` 并标记 `language`；部署后测覆盖率 | DONE 2026-10-22（代码+测试；覆盖率待生产复核） |
+| W1-02 | 下游标题优先中文 | S | AI | W1-01 | 有中文翻译的条目 100% 优先 `title_zh`；无翻译时保留 `title_original` 并标记 `language`；部署后测覆盖率 | DONE 2026-10-22（生产导出 46/46 有 title_zh） |
 | W1-03 | 项目/账号路由 | M | AI | W1-01 | `project_id`/`account_id` 可路由；两个项目互不串数据 | TODO |
 | W1-04 | 去重与 `event_id` | M | AI | W1-01 | 重复率 < 2%；同一事件日报只出现一次 | TODO |
 | W1-05 | 溯源与评分拆分 | S | AI | W1-01 | 下游可按 `source_tier`/`score_breakdown` 过滤 | TODO |
@@ -229,7 +229,8 @@
 |---|---|---|---|---|---|---|
 | W5-01 | 冻结/删除 Dashboard、RSS、Skill | M | AI | W0-02 | 保留 `/health` + `/api/overview` 监控；无用户回归 | TODO |
 | W5-02 | 关闭自动关键词/评分进化 | S | AI | — | 不再自动写 keywords.yaml / 注入 prompt；清理垃圾词 | DONE 2026-10-22（默认关闭；evolve all 只读；关键词 152→114） |
-| W5-03 | china-africa 归档 | S | AI | — | 从调度/文档/产品叙事移除；保留模板 | DONE 2026-10-22（scheduler/README 归档） |
+| W5-03 | china-africa 归档 | S | AI | — | 从调度/文档/产品叙事移除；保留模板 | DONE 2026-10-22（scheduler/README 归档；overview 过滤见 W5-03a） |
+| W5-03a | overview 过滤已归档 domain | S | AI | W5-03 | `/api/overview` 不再显示 china-africa | TODO |
 | W5-04 | 运营命令合并 | S | AI | — | 最多保留 quality-metrics / briefing-backfill 两个常用命令 | TODO |
 
 ### W6 运维与成本（P1）
@@ -255,6 +256,7 @@
 | SSH 修复 | `~/.ssh/config` 的 `my-windows` 增加 `ProxyJump my-server` | `ssh my-windows` 可登录；Windows `sshd` Running；直连 ZeroTier 1200/1400 ping 丢包 50%/100% |
 | Windows 盘点 | Windows 10 19045；repo 在 `a9f1325`，本地 `keywords.yaml` +79 行；API-Boot 任务禁用，Hourly/Daily/Evolve 启用 | 已备份 `keywords.yaml.bak-20261022`；`git fetch` 显示落后 3 个提交 |
 | API 路径复核 | SSH 隧道 18900→Windows 8900 | `/health` 200；`/api/items` 200/44KB；确认 API 正常，直连 ZeroTier 丢包 |
+| Windows 部署 | Windows 拉取 `69c0eb0`；API-Boot 重新启用；API 重启为 PID 2620 | `/health` 200；导出 46 条，46/46 有 `title_zh`；keywords=114；auto_evolution=False |
 
 **注意**：以上改动只在 Mac 工作区，尚未部署到 Windows。生产生效需要 `git pull` + 重启 API/定时任务；索引在 Store 初始化时自动创建。Windows 本地 `keywords.yaml` 的 79 行是旧自动进化留下的，部署前不要直接合并，先备份再显式丢弃或替换。
 
@@ -299,7 +301,7 @@
 ### 6.4 基础设施风险
 
 - **Windows 10 19045 已不在主流支持期**：远程桌面看到的“升级 Win11”是系统级提示，不是 SSH 故障原因；是否升级另立计划，升级前先确认 n8n/DeerFlow/WeRSS/Intel 等兼容性。
-- **API-Boot 定时任务当前禁用**：API 进程现在在跑，但重启机器后不会自动恢复；依赖 API 前需重新启用或改成服务。
+- **API-Boot 定时任务已重新启用（2026-10-22 部署）**：API 已由任务重启为 PID 2620，`/health` 200；后续需确认开机自启。
 - **Mac ZeroTier 直连 Windows 路径丢包**：SSH 已走 `ProxyJump my-server`；HTTP 大响应仍需隧道/LAN，不能再把“API 超时”误判为服务端慢。
 - **Windows 本地 keywords.yaml 有 79 行自动生成碎片**：已备份 `keywords.yaml.bak-20261022`；部署时先备份，再显式丢弃或替换，不要 `git pull` 硬冲突。
 
@@ -379,3 +381,4 @@
 |---|---|---|
 | 2026-10-22 | AI | 建立计划；写入实测基线；安装 Panorama MCP；确定 W0–W6 任务 |
 | 2026-10-22 | AI | 完成 W0-01/02/03、W1-01（intel-pipeline 侧）/02、W3-01（确认 AIHOT 缺失）、W5-02/03；修复 Windows SSH（ProxyJump）；211 tests passed；改动文件 ruff 全绿 |
+| 2026-10-22 | AI | 部署到 Windows：`69c0eb0`，API 重启 PID 2620，API-Boot 启用，导出 46/46 有 title_zh |
