@@ -69,7 +69,7 @@ def _predict_baseline(rows: list[dict]) -> dict[str, dict]:
     return pred
 
 
-def _predict_llm(rows: list[dict], prompt: str, domain: str,
+def _predict_llm(rows: list[dict], prompt: str, domain: str, batch_size: int = 1,
                  sleep_seconds: float = 2.5) -> dict[str, dict]:
     raws = [_raw(row) for row in rows]
     passed, rejected = rule_prefilter_items(raws)
@@ -84,8 +84,12 @@ def _predict_llm(rows: list[dict], prompt: str, domain: str,
         }
 
     domain_obj = SimpleNamespace(name=domain, scoring_prompt=prompt)
-    for index, raw in enumerate(passed):
-        scored = score_items([raw], domain_obj, batch_size=1, parallel=False)
+    if batch_size <= 1:
+        batches = [[raw] for raw in passed]
+    else:
+        batches = [passed[i:i + batch_size] for i in range(0, len(passed), batch_size)]
+    for index, batch in enumerate(batches):
+        scored = score_items(batch, domain_obj, batch_size=len(batch), parallel=False)
         scored = [apply_quality_gates(item) for item in scored]
         for item in scored:
             pred[_key({"url": item.raw.url, "title": item.raw.title})] = {
@@ -95,7 +99,7 @@ def _predict_llm(rows: list[dict], prompt: str, domain: str,
                 "content_type": item.content_type,
                 "reason": item.reason,
             }
-        if sleep_seconds and index < len(passed) - 1:
+        if sleep_seconds and index < len(batches) - 1:
             time.sleep(sleep_seconds)
     return pred
 
@@ -137,7 +141,8 @@ def main() -> None:
     parser.add_argument("--domain", default="elderly-care")
     parser.add_argument("--limit", type=int, default=0, help="只跑前 N 条（0 = 全部）")
     parser.add_argument("--baseline", action="store_true", help="不调 LLM，直接用 gold 里的 score 计算基线")
-    parser.add_argument("--sleep", type=float, default=2.5, help="逐条评分间隔秒数（默认 2.5，避免 RPM 限流）")
+    parser.add_argument("--batch-size", type=int, default=1, help="每批评分条数（默认 1）")
+    parser.add_argument("--sleep", type=float, default=0.5, help="批次间隔秒数（默认 0.5）")
     parser.add_argument("--output", default="")
     args = parser.parse_args()
 
@@ -153,7 +158,7 @@ def main() -> None:
         label = "baseline"
     else:
         prompt = Path(args.prompt).read_text(encoding="utf-8")
-        pred = _predict_llm(rows, prompt, args.domain, sleep_seconds=args.sleep)
+        pred = _predict_llm(rows, prompt, args.domain, batch_size=args.batch_size, sleep_seconds=args.sleep)
         label = Path(args.prompt).stem
 
     missing = [row["case_id"] for row in rows if _key(row) not in pred]
