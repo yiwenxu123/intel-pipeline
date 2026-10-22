@@ -209,9 +209,9 @@
 | ID | 任务 | 工作量 | 负责人 | 依赖 | 验收标准 | 状态 |
 |---|---|---|---|---|---|---|
 | W3-01 | 核实 AIHOT collector | S | AI | — | 容器内 `.py` 存在且运行，或明确移除配置；最近 7 天出现 `source=aihot` | DONE 2026-10-22（确认缺失：容器无 .py；最近 signals 无 aihot；配置仍在） |
-| W3-01a | 恢复最小 AIHOT collector 或移除配置 | S | AI | W3-01 | 本地可跑通；用户确认后同步到容器 | TODO |
+| W3-01a | 恢复最小 AIHOT collector 或移除配置 | S | AI | W3-01 | 本地可跑通；用户确认后同步到容器 | DONE 2026-10-22（aihot.news collector；48h 50 条；过滤通知；AIHOT_AVAILABLE=True） |
 | W3-02 | AI domain pack | M | 你 + AI | W1-01 | 信源/taxonomy/评分/账号/100 条金标齐全 | TODO |
-| W3-03 | AI 两周试点（AIHOT + Hermes，不写新引擎） | M | 你 + AI | W3-01a/02 | 上线 < 2 天；precision@20 >= 70%；8–10 可用选题/周 | TODO |
+| W3-03 | AI 两周试点（AIHOT + Hermes，不写新引擎） | M | 你 + AI | W3-01a/02 | 上线 < 2 天；precision@20 >= 70%；8–10 可用选题/周 | TODO（collector ready；试点待启动） |
 | W3-04 | AIHOT 自建 vs 消费 feed 决策 | S | 你 | W3-03 | 一页决策：成本、源控制、维护量 | DONE 2026-10-22（先消费 feed，2 周后复盘） |
 
 ### W4 历史试点（P2）
@@ -259,6 +259,7 @@
 | Windows 部署 | Windows 拉取 `69c0eb0`；API-Boot 重新启用；API 重启为 PID 2620 | `/health` 200；导出 46 条，46/46 有 `title_zh`；keywords=114；auto_evolution=False |
 | W5-03a | `/api/overview` 跳过 `paused_domains` | 单测覆盖；china-africa 不再出现在 overview |
 | W2-01 工具 | 新增 `scripts/sample_gold_set.py` + `docs/GOLD_SET_GUIDE.md` | 生产生成 100 条（positive 26 / negative 24 / hard 50），另出 Excel 可读 CSV；待人工标注 |
+| W3-01a | 恢复 Hermes `aihot_collector.py`，改用 `aihot.news` RSS；过滤 48 小时外和通知条目 | 容器测试 50 条，source=aihot，无通知；`AIHOT_AVAILABLE=True` |
 
 **注意**：以上改动只在 Mac 工作区，尚未部署到 Windows。生产生效需要 `git pull` + 重启 API/定时任务；索引在 Store 初始化时自动创建。Windows 本地 `keywords.yaml` 的 79 行是旧自动进化留下的，部署前不要直接合并，先备份再显式丢弃或替换。
 
@@ -323,6 +324,7 @@
 | 2026-10-22 | 养老评分转向“内容可用性” | 真实受众是内容选题，不是行业分析师 | 你 + AI |
 | 2026-10-22 | AI 先消费 AIHOT feed，2 周后再决定自建 | 降低迁移风险，先验证贡献 | 你 + AI |
 | 2026-10-22 | AIHOT collector 缺失，先恢复/移除配置再谈贡献 | 容器无 .py，最近 signals 无 aihot；配置与事实不符 | 你 + AI |
+| 2026-10-22 | 恢复 AIHOT collector，使用 aihot.news RSS | 旧域名 2026-10-31 停用；容器测试 48h 50 条 | 你 + AI |
 
 ---
 
@@ -384,4 +386,4 @@
 | 2026-10-22 | AI | 建立计划；写入实测基线；安装 Panorama MCP；确定 W0–W6 任务 |
 | 2026-10-22 | AI | 完成 W0-01/02/03、W1-01（intel-pipeline 侧）/02、W3-01（确认 AIHOT 缺失）、W5-02/03；修复 Windows SSH（ProxyJump）；211 tests passed；改动文件 ruff 全绿 |
 | 2026-10-22 | AI | 部署到 Windows：`69c0eb0`，API 重启 PID 2620，API-Boot 启用，导出 46/46 有 title_zh |
-| 2026-10-22 | AI | 完成 W5-03a；新增 W2-01 抽样工具与标注指南；生产生成 100 条金标样本；212 tests passed |
+| 2026-10-22 | AI | 完成 W5-03a；新增 W2-01 抽样工具与标注指南；生产生成 100 条金标样本；恢复 AIHOT collector（aihot.news，48h 50 条）；212 tests passed |
